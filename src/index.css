@@ -1,0 +1,80 @@
+@import "tailwindcss";
+@source "../src";
+@source "../index.html";
+
+@theme {
+  --font-cairo: 'Cairo', system-ui, -apple-system, sans-serif;
+  --font-tajawal: 'Tajawal', 'Cairo', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'IBM Plex Mono', monospace;
+}
+
+:root {
+  /* ── v2 Brand Design Tokens — Light Theme (البصمة الذكية v2) ── */
+  --bg-app: #f1f5f9;               /* Slate-100 light canvas */
+  --bg-card: #ffffff;              /* Pure white cards */
+  --bg-hover: #f8fafc;             /* Slate-50 hover */
+  --text-main: #0f172a;            /* Slate-900 high contrast */
+  --text-muted: #64748b;           /* Slate-500 secondary text */
+  --border-subtle: #e2e8f0;        /* Slate-200 border */
+
+  --color-primary: #6366f1;        /* Executive Indigo */
+  --color-primary-hover: #4f46e5;
+  --color-primary-glow: rgba(99, 102, 241, 0.3);
+
+  --color-accent: #0ea5e9;         /* Precision Sky/Cyan */
+  --color-accent-hover: #38bdf8;
+
+  --color-success: #10b981;        /* ZATCA Emerald Green */
+  --color-warning: #f59e0b;        /* Alert Amber */
+  --color-danger: #ef4444;         /* Action Rose/Red */
+  --color-purple: #8b5cf6;         /* Royal Violet */
+
+  --font-sans: 'Cairo', 'Tajawal', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'IBM Plex Mono', monospace;
+}
+
+@layer base {
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--bg-app);
+    color: var(--text-main);
+    font-family: var(--font-sans);
+    -webkit-tap-highlight-color: transparent;
+    direction: rtl;
+  }
+}
+
+/* ── v2 Light Card & Panel Utilities ── */
+.glass-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.glass-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+/* ── Minimalist Scrollbar matching v2 ── */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.5);
+}
