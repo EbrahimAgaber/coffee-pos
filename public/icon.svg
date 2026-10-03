@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="coffee-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f46e5" />
+      <stop offset="50%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#0ea5e9" />
+    </linearGradient>
+    <linearGradient id="cup-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#f1f5f9" />
+    </linearGradient>
+  </defs>
+  <!-- Background with Safe Margin (Maskable compatible) -->
+  <rect width="512" height="512" rx="112" fill="url(#coffee-grad)"/>
+  
+  <!-- Outer Glow Ring -->
+  <circle cx="256" cy="256" r="190" fill="none" stroke="#ffffff" stroke-width="6" stroke-opacity="0.25" stroke-dasharray="16 12"/>
+  
+  <!-- Coffee Cup Silhouette -->
+  <path d="M140 176 L340 176 L320 348 C316 384 286 412 250 412 L230 412 C194 412 164 384 160 348 Z" fill="url(#cup-grad)" filter="drop-shadow(0 12px 24px rgba(0,0,0,0.25))"/>
+  
+  <!-- Cup Sleeve / Wrap Band -->
+  <path d="M152 236 L328 236 L323 296 L157 296 Z" fill="#312e81" opacity="0.9"/>
+  
+  <!-- Cup Handle -->
+  <path d="M336 200 C376 200 404 224 404 260 C404 296 376 320 332 320" fill="none" stroke="#ffffff" stroke-width="24" stroke-linecap="round"/>
+  
+  <!-- Steam Waves / WiFi Signal / Realtime Symbol -->
+  <path d="M210 144 C205 120 220 100 210 76" fill="none" stroke="#ffffff" stroke-width="14" stroke-linecap="round" opacity="0.9"/>
+  <path d="M256 148 C250 116 268 94 256 64" fill="none" stroke="#38bdf8" stroke-width="16" stroke-linecap="round"/>
+  <path d="M302 144 C297 120 312 100 302 76" fill="none" stroke="#ffffff" stroke-width="14" stroke-linecap="round" opacity="0.9"/>
+  
+  <!-- Sparkle Accent -->
+  <polygon points="380,100 390,120 410,130 390,140 380,160 370,140 350,130 370,120" fill="#38bdf8"/>
+  
+  <!-- Brand Emblem on Sleeve -->
+  <circle cx="240" cy="266" r="16" fill="#10b981"/>
+  <path d="M234 266 L238 270 L246 262" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

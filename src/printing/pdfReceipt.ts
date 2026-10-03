@@ -79,7 +79,20 @@ export async function generateReceiptPdf(
 
   doc.setFontSize(8);
   doc.text(`الرقم الضريبي: ${profile.vatNumber}`, centerX, y, { align: 'center' });
-  y += 5;
+  y += 4.5;
+
+  if (profile.crNumber) {
+    doc.setFontSize(7.5);
+    doc.text(shapeBidi(`سجل تجاري: ${profile.crNumber}`), centerX, y, { align: 'center' });
+    y += 4;
+  }
+
+  if (profile.phone || profile.address) {
+    doc.setFontSize(7);
+    const contactInfo = [profile.address, profile.phone ? `هاتف: ${profile.phone}` : ''].filter(Boolean).join(' | ');
+    doc.text(shapeBidi(contactInfo), centerX, y, { align: 'center' });
+    y += 4;
+  }
 
   // Separator
   doc.setLineWidth(0.3);
@@ -199,9 +212,11 @@ export async function generateReceiptPdf(
 
   // Footer Note
   doc.setFontSize(7.5);
-  doc.text(shapeBidi('شكراً لزيارتكم ونسعد بخدمتكم دائماً'), centerX, y, { align: 'center' });
+  doc.text(shapeBidi(profile.footerAr || 'شكراً لزيارتكم ونسعد بخدمتكم دائماً'), centerX, y, { align: 'center' });
   y += 3.5;
-  doc.text('Thank you for your visit!', centerX, y, { align: 'center' });
+  if (profile.footerEn) {
+    doc.text(profile.footerEn, centerX, y, { align: 'center' });
+  }
 
   return doc;
 }
@@ -226,6 +241,7 @@ export async function shareReceiptPdf(
   options: PdfReceiptOptions = {}
 ): Promise<{ shared: boolean; method: 'web-share' | 'download' }> {
   const blob = await generateReceiptPdfBlob(order, options);
+  const profileName = options.storeProfile?.name || 'البارستا الذكي';
   const fileName = `Receipt_${order.formattedOrderNumber.replace('#', '')}.pdf`;
   const file = new File([blob], fileName, { type: 'application/pdf' });
 
@@ -238,7 +254,7 @@ export async function shareReceiptPdf(
     try {
       const sharePromise = navigator.share({
         title: `فاتورة ${order.formattedOrderNumber}`,
-        text: `فاتورة كافيه الأفق - طلب رقم ${order.formattedOrderNumber} بقيمة ${order.total.toFixed(2)} ر.س`,
+        text: `فاتورة ${profileName} - طلب رقم ${order.formattedOrderNumber} بقيمة ${order.total.toFixed(2)} ر.س`,
         files: [file],
       }).catch((err) => {
         if ((err as Error)?.name !== 'AbortError') {

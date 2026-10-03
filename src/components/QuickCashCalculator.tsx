@@ -1,5 +1,5 @@
 import React from 'react';
-import { Banknote, Check, AlertCircle, ArrowRight } from 'lucide-react';
+import { Banknote, Check, ArrowRight, Plus } from 'lucide-react';
 
 export interface QuickCashCalculatorProps {
   total: number;
@@ -9,7 +9,7 @@ export interface QuickCashCalculatorProps {
   className?: string;
 }
 
-export const SAUDI_DENOMINATIONS = [10, 20, 50, 100, 200, 500];
+export const SAUDI_DENOMINATIONS = [5, 10, 20, 50, 100, 200, 500];
 
 export function calculateChangeDue(total: number, tendered: number): {
   changeDue: number;
@@ -48,6 +48,10 @@ export const QuickCashCalculator: React.FC<QuickCashCalculatorProps> = ({
     onTenderedChange(amount);
   };
 
+  const handleIncrement = (increment: number) => {
+    onTenderedChange(Math.round((tendered + increment) * 100) / 100);
+  };
+
   const handleExactClick = () => {
     onTenderedChange(total);
   };
@@ -55,9 +59,9 @@ export const QuickCashCalculator: React.FC<QuickCashCalculatorProps> = ({
   return (
     <div className={`space-y-4 bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 ${className}`}>
       {/* Header & Total Banner */}
-      <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-        <div className="flex items-center gap-2">
-          <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
             <Banknote className="w-5 h-5" />
           </div>
           <div>
@@ -67,7 +71,7 @@ export const QuickCashCalculator: React.FC<QuickCashCalculatorProps> = ({
         </div>
         <div className="text-left">
           <div className="text-xs text-slate-500">إجمالي الفاتورة</div>
-          <div className="text-lg font-black text-sky-400 font-mono">
+          <div className="text-lg font-black text-indigo-700 font-mono">
             {total.toFixed(2)} <span className="text-xs font-normal text-slate-500">ر.س</span>
           </div>
         </div>
@@ -85,7 +89,7 @@ export const QuickCashCalculator: React.FC<QuickCashCalculatorProps> = ({
               value={tendered > 0 ? tendered : ''}
               placeholder="0.00"
               onChange={(e) => onTenderedChange(parseFloat(e.target.value) || 0)}
-              className="w-full bg-transparent font-mono text-xl sm:text-2xl font-black text-slate-900 focus:outline-none placeholder:text-slate-600"
+              className="w-full bg-transparent font-mono text-xl sm:text-2xl font-black text-slate-900 focus:outline-none placeholder:text-slate-400"
             />
             <span className="text-xs text-slate-500">ر.س</span>
           </div>
@@ -94,8 +98,8 @@ export const QuickCashCalculator: React.FC<QuickCashCalculatorProps> = ({
         <div
           className={`p-3.5 rounded-xl border transition-all ${
             isValid
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-              : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+              : 'bg-rose-50 border-rose-200 text-rose-900'
           }`}
         >
           <span className="text-xs block mb-1 font-medium">
@@ -103,9 +107,9 @@ export const QuickCashCalculator: React.FC<QuickCashCalculatorProps> = ({
           </span>
           <div className="text-xl sm:text-2xl font-black font-mono">
             {isValid ? (
-              <span>+{changeDue.toFixed(2)} <span className="text-xs font-normal">ر.س</span></span>
+              <span className="text-emerald-700">+{changeDue.toFixed(2)} <span className="text-xs font-normal">ر.س</span></span>
             ) : (
-              <span>-{underpayment.toFixed(2)} <span className="text-xs font-normal">ر.س</span></span>
+              <span className="text-rose-700">-{underpayment.toFixed(2)} <span className="text-xs font-normal">ر.س</span></span>
             )}
           </div>
         </div>
@@ -113,19 +117,37 @@ export const QuickCashCalculator: React.FC<QuickCashCalculatorProps> = ({
 
       {/* Denominations Button Grid */}
       <div className="space-y-2">
-        <div className="text-xs text-slate-500 font-medium">الفئات النقدية الشائعة (Saudi Riyal):</div>
-        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+        <div className="flex items-center justify-between text-xs text-slate-600 font-medium">
+          <span>الفئات النقدية الشائعة (Saudi Riyal):</span>
+          {/* Quick Increments */}
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-slate-400">إضافة:</span>
+            {[5, 10, 20].map((inc) => (
+              <button
+                key={inc}
+                type="button"
+                onClick={() => handleIncrement(inc)}
+                className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] font-mono font-bold text-slate-700 border border-slate-200 flex items-center"
+              >
+                <Plus className="w-2.5 h-2.5" />
+                {inc}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-4 gap-2">
           {/* Exact Amount Button */}
           <button
             type="button"
             onClick={handleExactClick}
-            className={`h-12 px-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+            className={`h-11 px-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 col-span-2 sm:col-span-1 ${
               Math.abs(tendered - total) < 0.01
-                ? 'bg-emerald-600 text-white border-emerald-500 shadow-lg shadow-emerald-600/25 scale-[1.02]'
-                : 'bg-slate-100 hover:bg-slate-100 text-emerald-400 border-slate-200 active:scale-95'
+                ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-600/20'
+                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200 active:scale-95'
             }`}
           >
-            <Check className="w-4 h-4" />
+            <Check className="w-3.5 h-3.5" />
             <span>المبلغ بالضبط</span>
           </button>
 
@@ -139,15 +161,15 @@ export const QuickCashCalculator: React.FC<QuickCashCalculatorProps> = ({
                 key={denom}
                 type="button"
                 onClick={() => handleDenominationClick(denom)}
-                className={`h-12 rounded-xl font-mono text-sm font-black border transition-all active:scale-95 ${
+                className={`h-11 rounded-xl font-mono text-sm font-black border transition-all active:scale-95 ${
                   isSelected
-                    ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg shadow-indigo-600/25 scale-[1.02]'
+                    ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/20'
                     : isInsufficient
-                    ? 'bg-slate-50 hover:bg-slate-100 text-slate-500 border-slate-200'
-                    : 'bg-slate-100 hover:bg-slate-100 text-slate-900 border-slate-200'
+                    ? 'bg-slate-50 hover:bg-slate-100 text-slate-400 border-slate-200'
+                    : 'bg-white hover:bg-slate-50 text-slate-800 border-slate-200 shadow-2xs'
                 }`}
               >
-                {denom} <span className="text-[11px] font-sans font-normal">ر.س</span>
+                {denom} <span className="text-[10px] font-sans font-normal text-slate-500">ر.س</span>
               </button>
             );
           })}
@@ -160,7 +182,7 @@ export const QuickCashCalculator: React.FC<QuickCashCalculatorProps> = ({
           type="button"
           disabled={!isValid || tendered <= 0}
           onClick={onQuickCheckout}
-          className="w-full h-12 mt-2 rounded-xl font-bold text-sm bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:pointer-events-none active:scale-98 shadow-lg shadow-emerald-500/20"
+          className="w-full h-12 mt-2 rounded-xl font-bold text-sm bg-emerald-600 hover:bg-emerald-700 text-white transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:pointer-events-none active:scale-98 shadow-md shadow-emerald-600/20"
         >
           <span>تأكيد استلام النقد وإتمام البيع</span>
           <ArrowRight className="w-4 h-4" />

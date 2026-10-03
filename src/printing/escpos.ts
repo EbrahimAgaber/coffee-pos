@@ -139,7 +139,7 @@ export class EscPosBuilder {
 export function generateEscPosReceiptText(
   order: Order,
   paperWidth: PaperWidth,
-  storeNameAr: string = 'كافيه الأفق'
+  storeNameAr: string = 'البارستا الذكي'
 ): string {
   const width = paperWidth === '58mm' ? 32 : 48;
   const separator = '-'.repeat(width);
@@ -206,6 +206,12 @@ export async function generateEscPosBytes(
   builder.line(shapeArabic(profile.name));
   builder.bold(false);
   builder.line(`VAT #: ${profile.vatNumber}`);
+  if (profile.crNumber) {
+    builder.line(`CR #: ${profile.crNumber}`);
+  }
+  if (profile.phone) {
+    builder.line(`Tel: ${profile.phone}`);
+  }
   builder.line(`فاتورة ضريبية مبسطة - ${order.formattedOrderNumber}`);
   builder.line(new Date(order.createdAt).toISOString().replace('T', ' ').substring(0, 19));
   if (order.tagValue) {
@@ -255,7 +261,10 @@ export async function generateEscPosBytes(
 
   // 5. Footer & Cut
   builder.align('center');
-  builder.line('شكراً لزيارتكم! Thank you!');
+  builder.line(shapeArabic(profile.footerAr || 'شكراً لزيارتكم ونسعد بخدمتكم دائماً'));
+  if (profile.footerEn) {
+    builder.line(profile.footerEn);
+  }
   if (includeCut) {
     builder.cut(4);
   }

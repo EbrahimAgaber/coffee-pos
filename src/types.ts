@@ -2,6 +2,21 @@
  * Domain Types for Coffee POS & Kitchen Display System (KDS)
  */
 
+export interface StoreSettings {
+  storeName: string;
+  storeNameEn: string;
+  vatNumber: string;
+  phone: string;
+  address: string;
+  currency: string;
+  taxRate: number;
+  masterPin: string;
+  commercialRegNumber?: string;
+  receiptFooterAr?: string;
+  receiptFooterEn?: string;
+  isProductionMode?: boolean;
+}
+
 export type StationRole = 'DRIVE_THRU' | 'KDS' | 'CASHIER' | 'OWNER';
 
 export type OrderStatus =
@@ -201,7 +216,36 @@ export type RealtimeEventType =
   | 'ORDER_CANCELLED'
   | 'STOCK_UPDATED'
   | 'CUSTOMER_CREDIT_UPDATED'
-  | 'STATION_HEARTBEAT';
+  | 'STATION_HEARTBEAT'
+  | 'DEVICE_HEARTBEAT'
+  | 'WORK_MOVEMENT_LOG'
+  | 'LICENSE_UPDATED'
+  | 'STORE_SETTINGS_UPDATED'
+  | 'MENU_UPDATED';
+
+export interface WorkMovementLogItem {
+  id: string;
+  timestamp: string;
+  stage: 'ORDER_CAPTURE' | 'KITCHEN_PREP' | 'BUMP_READY' | 'CASHIER_PAID' | 'VOID';
+  stationRole: StationRole;
+  orderNumber: number;
+  formattedOrderNumber: string;
+  tagValue: string;
+  vehicleModel?: string;
+  summary: string;
+  durationSeconds?: number;
+  total?: number;
+  deviceName?: string;
+}
+
+export interface ConnectedDeviceItem {
+  deviceId: string;
+  deviceName: string;
+  role: StationRole;
+  lastPingMs: number;
+  userAgent: string;
+  isCurrentDevice?: boolean;
+}
 
 export interface RealtimeEnvelope<T = unknown> {
   id: string;

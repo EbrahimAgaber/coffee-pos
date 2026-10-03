@@ -1,0 +1,8 @@
+{
+  "name": "Smart Barista POS | البارستا الذكي",
+  "description": "نظام نقاط البيع وشاشة المطبخ المتكامل للمقاهي والسيارات — البارستا الذكي",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

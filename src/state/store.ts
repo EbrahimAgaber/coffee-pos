@@ -11,6 +11,9 @@ import {
   Recipe,
   Region,
   StationRole,
+  WorkMovementLogItem,
+  ConnectedDeviceItem,
+  StoreSettings,
 } from '../types';
 import {
   INITIAL_CUSTOMERS,
@@ -19,6 +22,7 @@ import {
   INITIAL_ORDERS,
   INITIAL_RECIPES,
   INITIAL_REGIONS,
+  INITIAL_MOVEMENT_LOGS,
 } from './mockData';
 import {
   canTransitionOrder,
@@ -28,6 +32,15 @@ import {
 import { IRealtimeTransport } from '../types';
 import { SupabaseRealtimeTransport } from '../realtime/supabaseTransport';
 import { useSyncExternalStore } from 'react';
+import {
+  getActiveLicenseKey,
+  validateLicenseKey,
+  getOrCreateDeviceId,
+  getDeviceCustomName,
+  saveActiveLicenseKey,
+  LicenseValidationResult,
+  setDeviceCustomName,
+} from '../licensing/licenseManager';
 
 export interface PosState {
   activeStation: StationRole;
@@ -41,11 +54,45 @@ export interface PosState {
   currentShift: CashierShift;
   stockAlerts: string[];
   lastOrderNumber: number;
+  movementLogs: WorkMovementLogItem[];
+  connectedDevices: Record<string, ConnectedDeviceItem>;
+  activeLicenseKey: string;
+  licenseValidation: LicenseValidationResult;
+  deviceId: string;
+  deviceName: string;
+  storeSettings: StoreSettings;
 }
 
 const STORAGE_KEY = 'coffee_pos_state_v1';
 
 function getInitialState(): PosState {
+  const currentDevId = getOrCreateDeviceId();
+  const currentDevName = getDeviceCustomName();
+  const licenseKey = getActiveLicenseKey();
+  const licenseVal = validateLicenseKey(licenseKey);
+
+  const initialDevices: Record<string, ConnectedDeviceItem> = {
+    [currentDevId]: {
+      deviceId: currentDevId,
+      deviceName: currentDevName,
+      role: 'DRIVE_THRU',
+      lastPingMs: Date.now(),
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+      isCurrentDevice: true,
+    },
+  };
+
+  const defaultStoreSettings: StoreSettings = {
+    storeName: licenseVal.payload?.shopName || 'مقهى البارستا الذكي',
+    storeNameEn: 'Smart Barista Cafe',
+    vatNumber: '310123456700003',
+    phone: '0501234567',
+    address: 'الرياض، المملكة العربية السعودية',
+    currency: 'ر.س',
+    taxRate: 0.15,
+    masterPin: '1234',
+  };
+
   if (typeof window !== 'undefined' && window.localStorage) {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -55,7 +102,9 @@ function getInitialState(): PosState {
           ...parsed,
           // Guarantee fresh references
           activeStation: parsed.activeStation || 'DRIVE_THRU',
-          orders: Array.isArray(parsed.orders) && parsed.orders.length > 0 ? parsed.orders : INITIAL_ORDERS,
+          orders: Array.isArray(parsed.orders)
+            ? (parsed.storeSettings?.isProductionMode ? parsed.orders : (parsed.orders.length > 0 ? parsed.orders : INITIAL_ORDERS))
+            : INITIAL_ORDERS,
           ingredients: parsed.ingredients || INITIAL_INGREDIENTS,
           recipes: parsed.recipes || INITIAL_RECIPES,
           customers: parsed.customers || INITIAL_CUSTOMERS,
@@ -63,11 +112,20 @@ function getInitialState(): PosState {
           regions: parsed.regions || INITIAL_REGIONS,
           menu: parsed.menu || INITIAL_MENU,
           stockAlerts: parsed.stockAlerts || [],
-          lastOrderNumber: parsed.lastOrderNumber || 102,
+          lastOrderNumber: typeof parsed.lastOrderNumber === 'number' ? parsed.lastOrderNumber : 102,
+          movementLogs: Array.isArray(parsed.movementLogs)
+            ? (parsed.storeSettings?.isProductionMode ? parsed.movementLogs : (parsed.movementLogs.length > 0 ? parsed.movementLogs : INITIAL_MOVEMENT_LOGS))
+            : INITIAL_MOVEMENT_LOGS,
+          connectedDevices: initialDevices,
+          activeLicenseKey: licenseKey,
+          licenseValidation: licenseVal,
+          deviceId: currentDevId,
+          deviceName: currentDevName,
+          storeSettings: parsed.storeSettings || defaultStoreSettings,
           currentShift: parsed.currentShift || {
             id: 'shift_today_1',
             cashierId: 'cashier_1',
-            cashierName: 'محمد أحمد',
+            cashierName: 'الكاشير المناوب',
             openedAt: new Date().toISOString(),
             startingCash: 500,
             cashSales: 0,
@@ -96,10 +154,17 @@ function getInitialState(): PosState {
     menu: INITIAL_MENU,
     stockAlerts: [],
     lastOrderNumber: 102,
+    movementLogs: INITIAL_MOVEMENT_LOGS,
+    connectedDevices: initialDevices,
+    activeLicenseKey: licenseKey,
+    licenseValidation: licenseVal,
+    deviceId: currentDevId,
+    deviceName: currentDevName,
+    storeSettings: defaultStoreSettings,
     currentShift: {
       id: 'shift_today_1',
       cashierId: 'cashier_1',
-      cashierName: 'محمد أحمد',
+      cashierName: 'الكاشير المناوب',
       openedAt: new Date().toISOString(),
       startingCash: 500,
       cashSales: 0,
@@ -227,6 +292,82 @@ class PosStoreManager {
         this.emitChange();
       }
     });
+
+    // 5. WORK_MOVEMENT_LOG
+    this.transport.subscribe<WorkMovementLogItem>('WORK_MOVEMENT_LOG', (envelope) => {
+      const log = envelope.payload;
+      if (!log || !log.id) return;
+      if (!this.state.movementLogs.some((m) => m.id === log.id)) {
+        this.state = {
+          ...this.state,
+          movementLogs: [log, ...this.state.movementLogs].slice(0, 100),
+        };
+        this.emitChange();
+      }
+    });
+
+    // 6. DEVICE_HEARTBEAT
+    this.transport.subscribe<ConnectedDeviceItem>('DEVICE_HEARTBEAT', (envelope) => {
+      const dev = envelope.payload;
+      if (!dev || !dev.deviceId) return;
+      const isCurrent = dev.deviceId === this.state.deviceId;
+      this.state = {
+        ...this.state,
+        connectedDevices: {
+          ...this.state.connectedDevices,
+          [dev.deviceId]: {
+            ...dev,
+            lastPingMs: Date.now(),
+            isCurrentDevice: isCurrent,
+          },
+        },
+      };
+      this.emitChange();
+    });
+
+    // 7. LICENSE_UPDATED
+    this.transport.subscribe<{ licenseKey: string }>('LICENSE_UPDATED', (envelope) => {
+      if (envelope.payload?.licenseKey) {
+        const val = validateLicenseKey(envelope.payload.licenseKey);
+        this.state = {
+          ...this.state,
+          activeLicenseKey: envelope.payload.licenseKey,
+          licenseValidation: val,
+        };
+        this.emitChange();
+      }
+    });
+
+    // 8. STORE_SETTINGS_UPDATED
+    this.transport.subscribe<StoreSettings>('STORE_SETTINGS_UPDATED', (envelope) => {
+      if (envelope.payload) {
+        this.state = {
+          ...this.state,
+          storeSettings: { ...this.state.storeSettings, ...envelope.payload },
+        };
+        this.emitChange();
+      }
+    });
+
+    // 9. MENU_UPDATED
+    this.transport.subscribe<MenuItem[]>('MENU_UPDATED', (envelope) => {
+      if (Array.isArray(envelope.payload)) {
+        this.state = {
+          ...this.state,
+          menu: envelope.payload,
+        };
+        this.emitChange();
+      }
+    });
+
+    // Start heartbeat interval
+    if (typeof window !== 'undefined') {
+      setTimeout(() => this.broadcastHeartbeat(), 500);
+      setInterval(() => {
+        this.broadcastHeartbeat();
+        this.pruneStaleDevices();
+      }, 8000);
+    }
   }
 
   public getSnapshot = (): PosState => {
@@ -246,12 +387,392 @@ class PosStoreManager {
 
   // --- ACTIONS ---
 
+  public broadcastHeartbeat(): void {
+    const currentDevice: ConnectedDeviceItem = {
+      deviceId: this.state.deviceId,
+      deviceName: this.state.deviceName,
+      role: this.state.activeStation,
+      lastPingMs: Date.now(),
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+      isCurrentDevice: true,
+    };
+
+    this.state = {
+      ...this.state,
+      connectedDevices: {
+        ...this.state.connectedDevices,
+        [this.state.deviceId]: currentDevice,
+      },
+    };
+    this.emitChange();
+
+    this.transport.publish<ConnectedDeviceItem>({
+      type: 'DEVICE_HEARTBEAT',
+      stationId: this.state.activeStation,
+      payload: currentDevice,
+    }).catch(() => {});
+  }
+
+  public pruneStaleDevices(): void {
+    const now = Date.now();
+    const threshold = 35000; // 35 seconds
+    let changed = false;
+    const updated: Record<string, ConnectedDeviceItem> = {};
+
+    for (const [id, dev] of Object.entries(this.state.connectedDevices)) {
+      if (dev.isCurrentDevice || now - dev.lastPingMs < threshold) {
+        updated[id] = dev;
+      } else {
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      this.state = { ...this.state, connectedDevices: updated };
+      this.emitChange();
+    }
+  }
+
+  public removeConnectedDevice(targetDeviceId: string): void {
+    if (!this.state.connectedDevices[targetDeviceId]) return;
+    const updated = { ...this.state.connectedDevices };
+    delete updated[targetDeviceId];
+    this.state = { ...this.state, connectedDevices: updated };
+    this.emitChange();
+  }
+
+  public async recordMovementLog(item: Omit<WorkMovementLogItem, 'id' | 'timestamp' | 'deviceName'>): Promise<void> {
+    const fullItem: WorkMovementLogItem = {
+      ...item,
+      id: `mov_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      timestamp: new Date().toISOString(),
+      deviceName: this.state.deviceName,
+    };
+
+    this.state = {
+      ...this.state,
+      movementLogs: [fullItem, ...this.state.movementLogs].slice(0, 100),
+    };
+    this.emitChange();
+
+    await this.transport.publish<WorkMovementLogItem>({
+      type: 'WORK_MOVEMENT_LOG',
+      stationId: this.state.activeStation,
+      payload: fullItem,
+    });
+  }
+
+  public setCustomDeviceName(name: string): void {
+    setDeviceCustomName(name);
+    this.state = { ...this.state, deviceName: name };
+    this.emitChange();
+    this.broadcastHeartbeat();
+  }
+
+  public async updateLicenseKey(keyStr: string): Promise<LicenseValidationResult> {
+    const result = saveActiveLicenseKey(keyStr);
+    const updatedStoreSettings = { ...this.state.storeSettings };
+    if (result.payload?.shopName) {
+      updatedStoreSettings.storeName = result.payload.shopName;
+    }
+    this.state = {
+      ...this.state,
+      activeLicenseKey: keyStr,
+      licenseValidation: result,
+      storeSettings: updatedStoreSettings,
+    };
+    this.emitChange();
+
+    if (result.isValid && !result.isExpired) {
+      await this.transport.publish<{ licenseKey: string }>({
+        type: 'LICENSE_UPDATED',
+        stationId: this.state.activeStation,
+        payload: { licenseKey: keyStr },
+      });
+    }
+    return result;
+  }
+
+  public async saveLicenseKey(keyStr: string): Promise<LicenseValidationResult> {
+    return this.updateLicenseKey(keyStr);
+  }
+
+  public async updateStoreSettings(settings: Partial<StoreSettings>): Promise<void> {
+    const updated = {
+      ...this.state.storeSettings,
+      ...settings,
+    };
+    this.state = {
+      ...this.state,
+      storeSettings: updated,
+    };
+    this.emitChange();
+
+    await this.transport.publish<StoreSettings>({
+      type: 'STORE_SETTINGS_UPDATED',
+      stationId: this.state.activeStation,
+      payload: updated,
+    });
+  }
+
+  public async addMenuItem(itemData: Omit<MenuItem, 'id'>): Promise<MenuItem> {
+    const newItem: MenuItem = {
+      ...itemData,
+      id: `item_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    };
+    const updatedMenu = [...this.state.menu, newItem];
+    this.state = {
+      ...this.state,
+      menu: updatedMenu,
+    };
+    this.emitChange();
+
+    await this.transport.publish<MenuItem[]>({
+      type: 'MENU_UPDATED',
+      stationId: this.state.activeStation,
+      payload: updatedMenu,
+    });
+    return newItem;
+  }
+
+  public async updateMenuItem(item: MenuItem): Promise<void> {
+    const updatedMenu = this.state.menu.map((it) => (it.id === item.id ? item : it));
+    this.state = {
+      ...this.state,
+      menu: updatedMenu,
+    };
+    this.emitChange();
+
+    await this.transport.publish<MenuItem[]>({
+      type: 'MENU_UPDATED',
+      stationId: this.state.activeStation,
+      payload: updatedMenu,
+    });
+  }
+
+  public async deleteMenuItem(itemId: string): Promise<void> {
+    const updatedMenu = this.state.menu.filter((it) => it.id !== itemId);
+    this.state = {
+      ...this.state,
+      menu: updatedMenu,
+    };
+    this.emitChange();
+
+    await this.transport.publish<MenuItem[]>({
+      type: 'MENU_UPDATED',
+      stationId: this.state.activeStation,
+      payload: updatedMenu,
+    });
+  }
+
+  public async toggleMenuItemAvailability(itemId: string): Promise<void> {
+    const updatedMenu = this.state.menu.map((it) =>
+      it.id === itemId ? { ...it, isAvailable: !it.isAvailable } : it
+    );
+    this.state = {
+      ...this.state,
+      menu: updatedMenu,
+    };
+    this.emitChange();
+
+    await this.transport.publish<MenuItem[]>({
+      type: 'MENU_UPDATED',
+      stationId: this.state.activeStation,
+      payload: updatedMenu,
+    });
+  }
+
+  public async addRawIngredient(data: Omit<RawIngredient, 'id'>): Promise<RawIngredient> {
+    const newId = `ing_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const newIngredient: RawIngredient = {
+      ...data,
+      id: newId,
+    };
+    const updatedIngredients = {
+      ...this.state.ingredients,
+      [newId]: newIngredient,
+    };
+    this.state = {
+      ...this.state,
+      ingredients: updatedIngredients,
+    };
+    this.emitChange();
+
+    await this.transport.publish<{ ingredients: Record<string, RawIngredient> }>({
+      type: 'STOCK_UPDATED',
+      stationId: this.state.activeStation,
+      payload: { ingredients: updatedIngredients },
+    });
+    return newIngredient;
+  }
+
+  public async updateRawIngredient(ingredient: RawIngredient): Promise<void> {
+    const updatedIngredients = {
+      ...this.state.ingredients,
+      [ingredient.id]: ingredient,
+    };
+    this.state = {
+      ...this.state,
+      ingredients: updatedIngredients,
+    };
+    this.emitChange();
+
+    await this.transport.publish<{ ingredients: Record<string, RawIngredient> }>({
+      type: 'STOCK_UPDATED',
+      stationId: this.state.activeStation,
+      payload: { ingredients: updatedIngredients },
+    });
+  }
+
+  public async deleteRawIngredient(ingredientId: string): Promise<void> {
+    const updatedIngredients = { ...this.state.ingredients };
+    delete updatedIngredients[ingredientId];
+    this.state = {
+      ...this.state,
+      ingredients: updatedIngredients,
+    };
+    this.emitChange();
+
+    await this.transport.publish<{ ingredients: Record<string, RawIngredient> }>({
+      type: 'STOCK_UPDATED',
+      stationId: this.state.activeStation,
+      payload: { ingredients: updatedIngredients },
+    });
+  }
+
+  public async setIngredientStock(ingredientId: string, currentStock: number): Promise<void> {
+    const ing = this.state.ingredients[ingredientId];
+    if (!ing) return;
+    const updatedIngredients = {
+      ...this.state.ingredients,
+      [ingredientId]: {
+        ...ing,
+        currentStock,
+      },
+    };
+    this.state = {
+      ...this.state,
+      ingredients: updatedIngredients,
+    };
+    this.emitChange();
+
+    await this.transport.publish<{ ingredients: Record<string, RawIngredient> }>({
+      type: 'STOCK_UPDATED',
+      stationId: this.state.activeStation,
+      payload: { ingredients: updatedIngredients },
+    });
+  }
+
+  public addCustomer(data: Omit<Customer, 'id' | 'createdAt' | 'updatedAt' | 'currentBalance'>): Customer {
+    const now = new Date().toISOString();
+    const newCustomer: Customer = {
+      ...data,
+      id: `cust_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      currentBalance: 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.state = {
+      ...this.state,
+      customers: [newCustomer, ...this.state.customers],
+    };
+    this.emitChange();
+    return newCustomer;
+  }
+
+  public updateCustomer(customer: Customer): void {
+    const updated = this.state.customers.map((c) => (c.id === customer.id ? customer : c));
+    this.state = {
+      ...this.state,
+      customers: updated,
+    };
+    this.emitChange();
+  }
+
+  public addRegion(data: Omit<Region, 'id'>): Region {
+    const newRegion: Region = {
+      ...data,
+      id: `reg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    };
+    this.state = {
+      ...this.state,
+      regions: [...this.state.regions, newRegion],
+    };
+    this.emitChange();
+    return newRegion;
+  }
+
+  public async activateProductionCleanMode(options?: {
+    startingOrderNumber?: number;
+    cashierName?: string;
+    startingCash?: number;
+  }): Promise<void> {
+    const startNum = options?.startingOrderNumber ?? 1;
+    const cashierName = options?.cashierName || 'كاشير الفرع الرئيسي';
+    const startingCash = options?.startingCash ?? 500;
+    const now = new Date().toISOString();
+
+    const cleanShift: CashierShift = {
+      id: `shift_prod_${Date.now().toString().slice(-6)}`,
+      cashierId: 'cashier_prod_1',
+      cashierName,
+      openedAt: now,
+      startingCash,
+      cashSales: 0,
+      madaSales: 0,
+      creditSales: 0,
+      totalSales: 0,
+      orderCount: 0,
+      expectedCash: startingCash,
+      status: 'OPEN',
+    };
+
+    const resetCustomers = this.state.customers.map((c) => ({
+      ...c,
+      currentBalance: 0,
+      updatedAt: now,
+    }));
+
+    const cleanLog: WorkMovementLogItem = {
+      id: `mov_init_prod_${Date.now()}`,
+      timestamp: now,
+      stage: 'ORDER_CAPTURE',
+      stationRole: this.state.activeStation,
+      orderNumber: 0,
+      formattedOrderNumber: 'PROD-INIT',
+      tagValue: 'LIVE',
+      summary: 'تم تفعيل وضع الإنتاج والتشغيل الحي للنظام بنجاح وتصفير بيانات التجربة',
+    };
+
+    this.state = {
+      ...this.state,
+      orders: [],
+      lastOrderNumber: startNum - 1,
+      movementLogs: [cleanLog],
+      customers: resetCustomers,
+      customerLedger: [],
+      currentShift: cleanShift,
+      storeSettings: {
+        ...this.state.storeSettings,
+        isProductionMode: true,
+      },
+    };
+    this.emitChange();
+
+    await this.transport.publish<WorkMovementLogItem>({
+      type: 'WORK_MOVEMENT_LOG',
+      stationId: this.state.activeStation,
+      payload: cleanLog,
+    });
+  }
+
   public setActiveStation(station: StationRole): void {
     this.state = { ...this.state, activeStation: station };
     if (typeof window !== 'undefined' && window.localStorage) {
       localStorage.setItem('COFFEE_POS_STATION_ROLE', station);
     }
     this.emitChange();
+    this.broadcastHeartbeat();
   }
 
   public async createOrder(
@@ -290,6 +811,17 @@ class PosStoreManager {
       payload: newOrder,
     });
 
+    await this.recordMovementLog({
+      stage: 'ORDER_CAPTURE',
+      stationRole: this.state.activeStation,
+      orderNumber: newOrder.orderNumber,
+      formattedOrderNumber: newOrder.formattedOrderNumber,
+      tagValue: newOrder.tagValue,
+      vehicleModel: newOrder.vehicleModel,
+      summary: `تسجيل طلب جديد (${newOrder.items.map((i) => `${i.quantity}x ${i.nameAr}`).join('، ')})`,
+      total: newOrder.total,
+    });
+
     return newOrder;
   }
 
@@ -306,6 +838,16 @@ class PosStoreManager {
         type: 'ORDER_STATUS_CHANGED',
         stationId: this.state.activeStation,
         payload: result.order,
+      });
+
+      await this.recordMovementLog({
+        stage: 'KITCHEN_PREP',
+        stationRole: this.state.activeStation,
+        orderNumber: order.orderNumber,
+        formattedOrderNumber: order.formattedOrderNumber,
+        tagValue: order.tagValue,
+        vehicleModel: order.vehicleModel,
+        summary: `بدء تحضير الطلب في شاشة المطبخ`,
       });
     }
 
@@ -335,6 +877,17 @@ class PosStoreManager {
         type: 'ORDER_BUMPED',
         stationId: this.state.activeStation,
         payload: result.order,
+      });
+
+      await this.recordMovementLog({
+        stage: 'BUMP_READY',
+        stationRole: this.state.activeStation,
+        orderNumber: result.order.orderNumber,
+        formattedOrderNumber: result.order.formattedOrderNumber,
+        tagValue: result.order.tagValue,
+        vehicleModel: result.order.vehicleModel,
+        summary: `تم إنجاز التحضير في المطبخ وأصبح جاهزاً للتسليم عند الكاشير`,
+        durationSeconds: result.order.prepDurationSeconds,
       });
     }
 
@@ -474,6 +1027,17 @@ class PosStoreManager {
         stationId: this.state.activeStation,
         payload: result.order,
       });
+
+      await this.recordMovementLog({
+        stage: 'CASHIER_PAID',
+        stationRole: this.state.activeStation,
+        orderNumber: result.order.orderNumber,
+        formattedOrderNumber: result.order.formattedOrderNumber,
+        tagValue: result.order.tagValue,
+        vehicleModel: result.order.vehicleModel,
+        summary: `تسديد الفاتورة (${options.paymentMethod}) وإصدار الإيصال الضريبي`,
+        total: result.order.total,
+      });
     }
 
     return result;
@@ -598,6 +1162,16 @@ class PosStoreManager {
         stationId: this.state.activeStation,
         payload: result.order,
       });
+
+      await this.recordMovementLog({
+        stage: 'VOID',
+        stationRole: this.state.activeStation,
+        orderNumber: order.orderNumber,
+        formattedOrderNumber: order.formattedOrderNumber,
+        tagValue: order.tagValue,
+        vehicleModel: order.vehicleModel,
+        summary: `إلغاء الطلب: ${reason} (بواسطة ${voidedBy || 'المشرف'})`,
+      });
     }
 
     return result;
@@ -685,33 +1259,9 @@ class PosStoreManager {
     if (typeof window !== 'undefined' && window.localStorage) {
       localStorage.removeItem(STORAGE_KEY);
     }
-    this.state = {
-      activeStation: 'DRIVE_THRU',
-      orders: INITIAL_ORDERS,
-      ingredients: INITIAL_INGREDIENTS,
-      recipes: INITIAL_RECIPES,
-      customers: INITIAL_CUSTOMERS,
-      customerLedger: [],
-      regions: INITIAL_REGIONS,
-      menu: INITIAL_MENU,
-      stockAlerts: [],
-      lastOrderNumber: 102,
-      currentShift: {
-        id: 'shift_today_1',
-        cashierId: 'cashier_1',
-        cashierName: 'محمد أحمد',
-        openedAt: new Date().toISOString(),
-        startingCash: 500,
-        cashSales: 0,
-        madaSales: 0,
-        creditSales: 0,
-        totalSales: 0,
-        orderCount: 0,
-        expectedCash: 500,
-        status: 'OPEN',
-      },
-    };
+    this.state = getInitialState();
     this.emitChange();
+    this.broadcastHeartbeat();
   }
 
   private applyTransitionResult(result: TransitionResult): void {

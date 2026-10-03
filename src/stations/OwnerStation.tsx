@@ -1,6 +1,16 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { usePosStore, posStore } from '../state/store';
-import { Customer, RawIngredient, CashierShift, Order } from '../types';
+import {
+  Customer,
+  RawIngredient,
+  CashierShift,
+  Order,
+  MenuItem,
+  MenuCategory,
+  IngredientUnit,
+  Region,
+  StoreSettings,
+} from '../types';
 import {
   TrendingUp,
   Package,
@@ -31,28 +41,62 @@ import {
   AlertCircle,
   Archive,
   ShoppingBag,
+  Activity,
+  KeyRound,
+  ShieldCheck,
+  Zap,
+  Coffee,
+  Settings,
+  Edit2,
+  Trash2,
+  Save,
+  Building,
+  RotateCcw,
+  Sparkles,
 } from 'lucide-react';
+import { WorkMovementVisualizer } from '../components/WorkMovementVisualizer';
+import { LicenseModal } from '../components/LicenseModal';
 
-type OwnerSection = 'FINANCIAL' | 'INVENTORY' | 'DEBT_CUSTOMERS';
+type OwnerSection =
+  | 'WORK_MOVEMENT'
+  | 'FINANCIAL'
+  | 'MENU_MANAGEMENT'
+  | 'INVENTORY'
+  | 'DEBT_CUSTOMERS'
+  | 'STORE_SETTINGS'
+  | 'LICENSING';
 
 export const OwnerStation: React.FC = () => {
   const store = usePosStore();
 
   // Active Navigation Section
-  const [activeSection, setActiveSection] = useState<OwnerSection>('FINANCIAL');
+  const [activeSection, setActiveSection] = useState<OwnerSection>('WORK_MOVEMENT');
+  const [isLicenseModalOpen, setIsLicenseModalOpen] = useState<boolean>(false);
 
   // --- Financial & Shift State ---
   const [isXReportOpen, setIsXReportOpen] = useState<boolean>(false);
   const [isZReportOpen, setIsZReportOpen] = useState<boolean>(false);
   const [actualCashInput, setActualCashInput] = useState<string>('');
-  const [newShiftCashierName, setNewShiftCashierName] = useState<string>('محمد أحمد');
-  const [newShiftStartingCash, setNewShiftStartingCash] = useState<number>(500);
+  const [newShiftCashierName, setNewShiftCashierName] = useState<string>(
+    () => store.currentShift?.cashierName || 'كاشير الفرع الرئيسي'
+  );
+  const [newShiftStartingCash, setNewShiftStartingCash] = useState<number>(
+    () => store.currentShift?.startingCash || 500
+  );
 
   // --- Inventory State ---
   const [replenishItem, setReplenishItem] = useState<RawIngredient | null>(null);
   const [replenishAmount, setReplenishAmount] = useState<string>('');
   const [inventorySearch, setInventorySearch] = useState<string>('');
   const [filterLowStockOnly, setFilterLowStockOnly] = useState<boolean>(false);
+  const [isAddIngredientModalOpen, setIsAddIngredientModalOpen] = useState<boolean>(false);
+  const [newIngNameAr, setNewIngNameAr] = useState<string>('');
+  const [newIngNameEn, setNewIngNameEn] = useState<string>('');
+  const [newIngSku, setNewIngSku] = useState<string>('');
+  const [newIngUnit, setNewIngUnit] = useState<IngredientUnit>('g');
+  const [newIngStock, setNewIngStock] = useState<number>(1000);
+  const [newIngThreshold, setNewIngThreshold] = useState<number>(200);
+  const [newIngCost, setNewIngCost] = useState<number>(0.1);
 
   // --- Debt & Regional Customers State ---
   const [selectedRegionFilter, setSelectedRegionFilter] = useState<string>('ALL');
@@ -66,8 +110,84 @@ export const OwnerStation: React.FC = () => {
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState<boolean>(false);
   const [newCustName, setNewCustName] = useState<string>('');
   const [newCustPhone, setNewCustPhone] = useState<string>('');
-  const [newCustRegion, setNewCustRegion] = useState<string>('حي الياسمين');
+  const [newCustRegion, setNewCustRegion] = useState<string>(() => store.regions[0]?.nameAr || 'الفرع الرئيسي');
   const [newCustLimit, setNewCustLimit] = useState<number>(1000);
+
+  // Add Region Modal
+  const [isAddRegionOpen, setIsAddRegionOpen] = useState<boolean>(false);
+  const [newRegionNameAr, setNewRegionNameAr] = useState<string>('');
+  const [newRegionCity, setNewRegionCity] = useState<string>('الرياض');
+
+  // --- Menu Management State ---
+  const [menuCategoryFilter, setMenuCategoryFilter] = useState<'ALL' | MenuCategory>('ALL');
+  const [menuSearchQuery, setMenuSearchQuery] = useState<string>('');
+  const [isAddMenuModalOpen, setIsAddMenuModalOpen] = useState<boolean>(false);
+  const [editingMenuItem, setEditingMenuItem] = useState<MenuItem | null>(null);
+
+  const [menuFormNameAr, setMenuFormNameAr] = useState<string>('');
+  const [menuFormNameEn, setMenuFormNameEn] = useState<string>('');
+  const [menuFormCategory, setMenuFormCategory] = useState<MenuCategory>('HOT');
+  const [menuFormBasePrice, setMenuFormBasePrice] = useState<number>(18);
+  const [menuFormPriceS, setMenuFormPriceS] = useState<number>(16);
+  const [menuFormPriceM, setMenuFormPriceM] = useState<number>(18);
+  const [menuFormPriceL, setMenuFormPriceL] = useState<number>(20);
+  const [menuFormDescAr, setMenuFormDescAr] = useState<string>('');
+  const [menuFormDescEn, setMenuFormDescEn] = useState<string>('');
+
+  // --- Store Settings State ---
+  const [settingsStoreName, setSettingsStoreName] = useState<string>(store.storeSettings?.storeName || '');
+  const [settingsStoreNameEn, setSettingsStoreNameEn] = useState<string>(store.storeSettings?.storeNameEn || '');
+  const [settingsVatNumber, setSettingsVatNumber] = useState<string>(store.storeSettings?.vatNumber || '');
+  const [settingsCrNumber, setSettingsCrNumber] = useState<string>(store.storeSettings?.commercialRegNumber || '');
+  const [settingsPhone, setSettingsPhone] = useState<string>(store.storeSettings?.phone || '');
+  const [settingsAddress, setSettingsAddress] = useState<string>(store.storeSettings?.address || '');
+  const [settingsCurrency, setSettingsCurrency] = useState<string>(store.storeSettings?.currency || 'ر.س');
+  const [settingsTaxRate, setSettingsTaxRate] = useState<number>(store.storeSettings?.taxRate ?? 0.15);
+  const [settingsMasterPin, setSettingsMasterPin] = useState<string>(store.storeSettings?.masterPin || '1234');
+  const [settingsFooterAr, setSettingsFooterAr] = useState<string>(
+    store.storeSettings?.receiptFooterAr || 'شكراً لزيارتكم ونسعد بخدمتكم دائماً'
+  );
+  const [settingsFooterEn, setSettingsFooterEn] = useState<string>(
+    store.storeSettings?.receiptFooterEn || 'Thank you for your visit!'
+  );
+  const [settingsSavedToast, setSettingsSavedToast] = useState<boolean>(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
+
+  // Sync settings inputs when store settings update
+  useEffect(() => {
+    if (store.storeSettings) {
+      setSettingsStoreName(store.storeSettings.storeName);
+      setSettingsStoreNameEn(store.storeSettings.storeNameEn);
+      setSettingsVatNumber(store.storeSettings.vatNumber);
+      setSettingsCrNumber(store.storeSettings.commercialRegNumber || '');
+      setSettingsPhone(store.storeSettings.phone);
+      setSettingsAddress(store.storeSettings.address);
+      setSettingsCurrency(store.storeSettings.currency);
+      setSettingsTaxRate(store.storeSettings.taxRate);
+      setSettingsMasterPin(store.storeSettings.masterPin);
+      if (store.storeSettings.receiptFooterAr) setSettingsFooterAr(store.storeSettings.receiptFooterAr);
+      if (store.storeSettings.receiptFooterEn) setSettingsFooterEn(store.storeSettings.receiptFooterEn);
+    }
+  }, [store.storeSettings]);
+
+  // --- Production Reset / Live Mode State ---
+  const [isProductionModalOpen, setIsProductionModalOpen] = useState<boolean>(false);
+  const [prodPinInput, setProdPinInput] = useState<string>('');
+  const [prodStartOrderNum, setProdStartOrderNum] = useState<number>(1);
+  const [prodCashierName, setProdCashierName] = useState<string>(
+    () => store.currentShift?.cashierName || 'كاشير الفرع الرئيسي'
+  );
+  const [prodStartingCash, setProdStartingCash] = useState<number>(
+    () => store.currentShift?.startingCash || 500
+  );
+  const [prodPinError, setProdPinError] = useState<string>('');
+  const [prodSuccessToast, setProdSuccessToast] = useState<boolean>(false);
 
   // Completed Orders for KPIs
   const completedOrders = useMemo(() => {
@@ -210,11 +330,212 @@ export const OwnerStation: React.FC = () => {
     posStore.openShift(newShiftCashierName, newShiftStartingCash);
   };
 
+  // --- Filtered Menu Items ---
+  const filteredMenuItems = useMemo(() => {
+    return store.menu.filter((it) => {
+      const matchCat = menuCategoryFilter === 'ALL' || it.category === menuCategoryFilter;
+      const q = menuSearchQuery.toLowerCase().trim();
+      const matchQuery =
+        !q ||
+        it.nameAr.toLowerCase().includes(q) ||
+        it.nameEn.toLowerCase().includes(q) ||
+        it.descriptionAr?.toLowerCase().includes(q);
+      return matchCat && matchQuery;
+    });
+  }, [store.menu, menuCategoryFilter, menuSearchQuery]);
+
+  // --- Menu Handlers ---
+  const handleOpenAddMenuItem = () => {
+    setEditingMenuItem(null);
+    setMenuFormNameAr('');
+    setMenuFormNameEn('');
+    setMenuFormCategory('HOT');
+    setMenuFormBasePrice(18);
+    setMenuFormPriceS(16);
+    setMenuFormPriceM(18);
+    setMenuFormPriceL(20);
+    setMenuFormDescAr('');
+    setMenuFormDescEn('');
+    setIsAddMenuModalOpen(true);
+  };
+
+  const handleOpenEditMenuItem = (item: MenuItem) => {
+    setEditingMenuItem(item);
+    setMenuFormNameAr(item.nameAr);
+    setMenuFormNameEn(item.nameEn);
+    setMenuFormCategory(item.category);
+    setMenuFormBasePrice(item.basePrice);
+    setMenuFormPriceS(item.sizes?.S || item.basePrice);
+    setMenuFormPriceM(item.sizes?.M || item.basePrice);
+    setMenuFormPriceL(item.sizes?.L || item.basePrice);
+    setMenuFormDescAr(item.descriptionAr || '');
+    setMenuFormDescEn(item.descriptionEn || '');
+    setIsAddMenuModalOpen(true);
+  };
+
+  const handleSaveMenuItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!menuFormNameAr.trim()) return;
+
+    if (editingMenuItem) {
+      await posStore.updateMenuItem({
+        ...editingMenuItem,
+        nameAr: menuFormNameAr.trim(),
+        nameEn: menuFormNameEn.trim() || menuFormNameAr.trim(),
+        category: menuFormCategory,
+        basePrice: Number(menuFormBasePrice) || 0,
+        sizes: {
+          S: Number(menuFormPriceS) || Number(menuFormBasePrice),
+          M: Number(menuFormPriceM) || Number(menuFormBasePrice),
+          L: Number(menuFormPriceL) || Number(menuFormBasePrice),
+        },
+        descriptionAr: menuFormDescAr.trim(),
+        descriptionEn: menuFormDescEn.trim(),
+      });
+    } else {
+      await posStore.addMenuItem({
+        nameAr: menuFormNameAr.trim(),
+        nameEn: menuFormNameEn.trim() || menuFormNameAr.trim(),
+        category: menuFormCategory,
+        basePrice: Number(menuFormBasePrice) || 0,
+        sizes: {
+          S: Number(menuFormPriceS) || Number(menuFormBasePrice),
+          M: Number(menuFormPriceM) || Number(menuFormBasePrice),
+          L: Number(menuFormPriceL) || Number(menuFormBasePrice),
+        },
+        descriptionAr: menuFormDescAr.trim(),
+        descriptionEn: menuFormDescEn.trim(),
+        recipeId: 'rec_custom',
+        isAvailable: true,
+      });
+    }
+    setIsAddMenuModalOpen(false);
+    setEditingMenuItem(null);
+  };
+
+  const handleDeleteMenuItem = (itemId: string, name: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'حذف صنف من القائمة',
+      message: `هل أنت متأكد من حذف الصنف "${name}" من القائمة نهائياً؟`,
+      onConfirm: async () => {
+        await posStore.deleteMenuItem(itemId);
+        setConfirmModal(null);
+      },
+    });
+  };
+
+  const handleToggleAvailability = async (itemId: string) => {
+    await posStore.toggleMenuItemAvailability(itemId);
+  };
+
+  // --- Store Settings Handlers ---
+  const handleSaveStoreSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!settingsVatNumber.trim()) {
+      setSettingsError('الرجاء إدخال الرقم الضريبي للتحقق من امتثال هيئة الزكاة والضريبة والجمارك ZATCA');
+      setTimeout(() => setSettingsError(null), 5000);
+      return;
+    }
+    setSettingsError(null);
+    await posStore.updateStoreSettings({
+      storeName: settingsStoreName.trim(),
+      storeNameEn: settingsStoreNameEn.trim(),
+      vatNumber: settingsVatNumber.trim(),
+      commercialRegNumber: settingsCrNumber.trim(),
+      phone: settingsPhone.trim(),
+      address: settingsAddress.trim(),
+      currency: settingsCurrency.trim() || 'ر.س',
+      taxRate: Number(settingsTaxRate) || 0.15,
+      masterPin: settingsMasterPin.trim() || '1234',
+      receiptFooterAr: settingsFooterAr.trim(),
+      receiptFooterEn: settingsFooterEn.trim(),
+    });
+    setSettingsSavedToast(true);
+    setTimeout(() => setSettingsSavedToast(false), 3000);
+  };
+
+  // --- Production Mode Reset Handlers ---
+  const handleConfirmProductionMode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (prodPinInput.trim() !== (store.storeSettings?.masterPin || '1234')) {
+      setProdPinError('رمز المشرف (PIN) غير صحيح');
+      return;
+    }
+    await posStore.activateProductionCleanMode({
+      startingOrderNumber: Number(prodStartOrderNum) || 1,
+      cashierName: prodCashierName.trim() || 'كاشير الفرع الرئيسي',
+      startingCash: Number(prodStartingCash) || 500,
+    });
+    setIsProductionModalOpen(false);
+    setProdPinInput('');
+    setProdPinError('');
+    setProdSuccessToast(true);
+    setTimeout(() => setProdSuccessToast(false), 4000);
+  };
+
+  // --- Inventory & Ingredients Handlers ---
+  const handleSaveIngredient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newIngNameAr.trim()) return;
+    await posStore.addRawIngredient({
+      nameAr: newIngNameAr.trim(),
+      nameEn: newIngNameEn.trim() || newIngNameAr.trim(),
+      sku: newIngSku.trim() || `SKU-${Date.now().toString().slice(-4)}`,
+      unit: newIngUnit,
+      currentStock: Number(newIngStock) || 0,
+      minAlertThreshold: Number(newIngThreshold) || 10,
+      costPerUnit: Number(newIngCost) || 0,
+    });
+    setIsAddIngredientModalOpen(false);
+    setNewIngNameAr('');
+    setNewIngNameEn('');
+    setNewIngSku('');
+  };
+
+  const handleDeleteIngredient = (ingId: string, name: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'حذف مادة خام من المستودع',
+      message: `هل أنت متأكد من حذف المادة الخام "${name}" من المستودع؟`,
+      onConfirm: async () => {
+        await posStore.deleteRawIngredient(ingId);
+        setConfirmModal(null);
+      },
+    });
+  };
+
+  // --- Region Handlers ---
+  const handleSaveRegion = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRegionNameAr.trim()) return;
+    posStore.addRegion({
+      nameAr: newRegionNameAr.trim(),
+      nameEn: newRegionNameAr.trim(),
+      city: newRegionCity.trim() || 'الرياض',
+    });
+    setIsAddRegionOpen(false);
+    setNewRegionNameAr('');
+  };
+
   return (
     <div className="space-y-6 pb-12">
       {/* Top Navigation Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white border border-slate-200 p-2 sm:p-3 rounded-2xl">
         <div className="flex items-center gap-2 p-1 bg-slate-50 rounded-xl border border-slate-200 overflow-x-auto w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => setActiveSection('WORK_MOVEMENT')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+              activeSection === 'WORK_MOVEMENT'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-white'
+            }`}
+          >
+            <Activity className="w-4 h-4 text-amber-400" />
+            <span>حركة العمل المباشرة (Work Movement)</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setActiveSection('FINANCIAL')}
@@ -225,7 +546,23 @@ export const OwnerStation: React.FC = () => {
             }`}
           >
             <TrendingUp className="w-4 h-4" />
-            <span>التقارير المالية والورديات (X/Z)</span>
+            <span>التقارير والورديات (X/Z)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSection('MENU_MANAGEMENT')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+              activeSection === 'MENU_MANAGEMENT'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-white'
+            }`}
+          >
+            <Coffee className="w-4 h-4" />
+            <span>قائمة الأصناف والأسعار</span>
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
+              {store.menu.length}
+            </span>
           </button>
 
           <button
@@ -238,7 +575,7 @@ export const OwnerStation: React.FC = () => {
             }`}
           >
             <Package className="w-4 h-4" />
-            <span>مخزون الوصفات (BOM Recipe Inventory)</span>
+            <span>المستودع والمخزون</span>
             {lowStockCount > 0 && (
               <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white">
                 {lowStockCount}
@@ -256,7 +593,33 @@ export const OwnerStation: React.FC = () => {
             }`}
           >
             <Users className="w-4 h-4" />
-            <span>العملاء والذمم الإقليمية (آجل)</span>
+            <span>العملاء والآجل</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSection('STORE_SETTINGS')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+              activeSection === 'STORE_SETTINGS'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-white'
+            }`}
+          >
+            <Settings className="w-4 h-4" />
+            <span>إعدادات المتجر وبيانات الفاتورة</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSection('LICENSING')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+              activeSection === 'LICENSING'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-white'
+            }`}
+          >
+            <KeyRound className="w-4 h-4 text-indigo-400" />
+            <span>التراخيص والأجهزة</span>
           </button>
         </div>
 
@@ -1149,18 +1512,12 @@ export const OwnerStation: React.FC = () => {
                 type="button"
                 disabled={!newCustName.trim()}
                 onClick={() => {
-                  const newCust: Customer = {
-                    id: `cust_${Date.now()}`,
+                  posStore.addCustomer({
                     name: newCustName.trim(),
                     phone: newCustPhone.trim() || '0500000000',
                     region: newCustRegion,
                     creditLimit: newCustLimit,
-                    currentBalance: 0,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                  };
-                  // We can update customers in store
-                  store.customers.push(newCust);
+                  });
                   setIsAddCustomerOpen(false);
                   setNewCustName('');
                   setNewCustPhone('');
@@ -1168,6 +1525,942 @@ export const OwnerStation: React.FC = () => {
                 className="w-2/3 h-10 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-bold text-xs shadow-md shadow-purple-600/20"
               >
                 حفظ العميل
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SECTION: MENU & PRODUCT CATALOG MANAGEMENT                                */}
+      {/* ========================================================================= */}
+      {activeSection === 'MENU_MANAGEMENT' && (
+        <div className="space-y-4">
+          {/* Controls Bar */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white border border-slate-200 p-3 sm:p-4 rounded-2xl">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative min-w-[200px] sm:min-w-[240px]">
+                <Search className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={menuSearchQuery}
+                  onChange={(e) => setMenuSearchQuery(e.target.value)}
+                  placeholder="بحث في قائمة الأصناف..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pr-9 pl-3 py-2 text-xs text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              {/* Category Pills */}
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl overflow-x-auto">
+                {(
+                  [
+                    { id: 'ALL', label: 'الكل' },
+                    { id: 'HOT', label: 'ساخن' },
+                    { id: 'COLD', label: 'بارد' },
+                    { id: 'DRIP', label: 'تقطير' },
+                    { id: 'TEA', label: 'شاي' },
+                    { id: 'PASTRY', label: 'حلا ومخبوزات' },
+                  ] as const
+                ).map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setMenuCategoryFilter(cat.id)}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition whitespace-nowrap ${
+                      menuCategoryFilter === cat.id
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleOpenAddMenuItem}
+              className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition active:scale-95 whitespace-nowrap"
+            >
+              <Plus className="w-4 h-4" />
+              <span>إضافة صنف جديد</span>
+            </button>
+          </div>
+
+          {/* Menu Items Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {filteredMenuItems.map((item) => {
+              const categoryBadge =
+                item.category === 'HOT'
+                  ? { label: 'قهوة ساخنة 🔥', color: 'bg-amber-50 text-amber-700 border-amber-200' }
+                  : item.category === 'COLD'
+                  ? { label: 'قهوة باردة ❄️', color: 'bg-sky-50 text-sky-700 border-sky-200' }
+                  : item.category === 'DRIP'
+                  ? { label: 'مختصة وتقطير ☕', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' }
+                  : item.category === 'TEA'
+                  ? { label: 'شاي ومنعشات 🍃', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
+                  : { label: 'حلا ومخبوزات 🥐', color: 'bg-orange-50 text-orange-700 border-orange-200' };
+
+              return (
+                <div
+                  key={item.id}
+                  className={`bg-white border rounded-2xl p-4 transition-all relative flex flex-col justify-between ${
+                    item.isAvailable ? 'border-slate-200 shadow-xs' : 'border-slate-200 bg-slate-50/70 opacity-70'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div>
+                        <h4 className="font-bold text-sm text-slate-900">{item.nameAr}</h4>
+                        <p className="text-[11px] text-slate-500 font-mono">{item.nameEn}</p>
+                      </div>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${categoryBadge.color}`}>
+                        {categoryBadge.label}
+                      </span>
+                    </div>
+
+                    {item.descriptionAr && (
+                      <p className="text-xs text-slate-600 line-clamp-2 mb-3">
+                        {item.descriptionAr}
+                      </p>
+                    )}
+
+                    {/* Pricing */}
+                    <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-200/80 mb-3 space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-500">السعر الأساسي:</span>
+                        <span className="font-mono font-black text-slate-900">
+                          {item.basePrice.toFixed(2)} ر.س
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200/60 font-mono">
+                        <span>صغير: {item.sizes?.S ?? item.basePrice} ر.س</span>
+                        <span>وسط: {item.sizes?.M ?? item.basePrice} ر.س</span>
+                        <span>كبير: {item.sizes?.L ?? item.basePrice} ر.س</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions & Availability Toggle */}
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleAvailability(item.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                        item.isAvailable
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                          : 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
+                      }`}
+                    >
+                      <span className={`w-2 h-2 rounded-full ${item.isAvailable ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                      <span>{item.isAvailable ? 'متاح للطلب' : 'غير متوفر (نافذ)'}</span>
+                    </button>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditMenuItem(item)}
+                        className="p-1.5 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-slate-100 transition"
+                        title="تعديل الصنف والأسعار"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteMenuItem(item.id, item.nameAr)}
+                        className="p-1.5 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition"
+                        title="حذف الصنف"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {filteredMenuItems.length === 0 && (
+            <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center text-slate-500 space-y-3">
+              <Coffee className="w-10 h-10 mx-auto text-slate-300" />
+              <div className="text-sm font-bold text-slate-800">لا توجد أصناف مطابقة للبحث أو الفلتر</div>
+              <button
+                type="button"
+                onClick={handleOpenAddMenuItem}
+                className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs inline-flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span>إضافة صنف جديد</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SECTION: STORE SETTINGS & TAX & PRODUCTION MODE                           */}
+      {/* ========================================================================= */}
+      {activeSection === 'STORE_SETTINGS' && (
+        <div className="space-y-6">
+          {settingsSavedToast && (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>تم حفظ وتحديث إعدادات المتجر وبيانات الفاتورة بنجاح ومزامنتها لحظياً مع جميع الأجهزة.</span>
+            </div>
+          )}
+
+          {settingsError && (
+            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-bold flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{settingsError}</span>
+            </div>
+          )}
+
+          {prodSuccessToast && (
+            <div className="p-4 bg-emerald-600 text-white rounded-2xl text-sm font-bold flex items-center gap-3 shadow-lg shadow-emerald-600/20">
+              <Sparkles className="w-5 h-5 text-amber-300 shrink-0" />
+              <span>تم تفعيل وضع الإنتاج بنجاح! تم تصفير بيانات التجربة، والنظام جاهز الآن لاستقبال زبائنك الحقيقيين.</span>
+            </div>
+          )}
+
+          {/* Production Mode Switcher Card */}
+          <div
+            className={`border rounded-2xl p-5 sm:p-6 transition relative overflow-hidden ${
+              store.storeSettings?.isProductionMode
+                ? 'bg-gradient-to-br from-emerald-500/10 via-white to-white border-emerald-300 shadow-sm'
+                : 'bg-gradient-to-br from-amber-500/10 via-white to-white border-amber-300 shadow-sm'
+            }`}
+          >
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <div
+                    className={`p-2 rounded-xl ${
+                      store.storeSettings?.isProductionMode
+                        ? 'bg-emerald-500 text-white'
+                        : 'bg-amber-500 text-white'
+                    }`}
+                  >
+                    <RotateCcw className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">
+                      وضع التشغيل: {store.storeSettings?.isProductionMode ? 'وضع الإنتاج الفعلي (Live Production)' : 'وضع التجربة (Demo Mode)'}
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {store.storeSettings?.isProductionMode
+                        ? 'النظام يعمل حالياً بكامل طاقته ومسجل للطلبات والمبيعات الحقيقية.'
+                        : 'يحتوي النظام حالياً على طلبات وديون تجريبية لاختبار الكاشير وشاشة المطبخ والسيارات.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setProdPinInput('');
+                  setProdPinError('');
+                  setIsProductionModalOpen(true);
+                }}
+                className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition active:scale-95 shadow-sm whitespace-nowrap ${
+                  store.storeSettings?.isProductionMode
+                    ? 'bg-slate-900 hover:bg-slate-800 text-white'
+                    : 'bg-amber-500 hover:bg-amber-600 text-slate-950 font-black'
+                }`}
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>{store.storeSettings?.isProductionMode ? 'إعادة تصفير العداد وبدء وردية جديدة' : 'تصفير بيانات التجربة والانتقال للإنتاج الفعلي'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Store & Tax Identity Form */}
+          <form onSubmit={handleSaveStoreSettings} className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-6">
+            <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">هوية المتجر وبيانات الفاتورة الضريبية ZATCA</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  هذه البيانات تظهر في الفواتير المطبوعة والمشاريع الرقمية ورمز الاستجابة السريع QR
+                </p>
+              </div>
+              <button
+                type="submit"
+                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-2 shadow-sm transition active:scale-95"
+              >
+                <Save className="w-4 h-4" />
+                <span>حفظ التعديلات</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">اسم المقهى بالعربي:</label>
+                <input
+                  type="text"
+                  required
+                  value={settingsStoreName}
+                  onChange={(e) => setSettingsStoreName(e.target.value)}
+                  placeholder="مثال: مقهى رشفة البارستا المختصة"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">اسم المقهى بالإنجليزي:</label>
+                <input
+                  type="text"
+                  value={settingsStoreNameEn}
+                  onChange={(e) => setSettingsStoreNameEn(e.target.value)}
+                  placeholder="e.g. Barista Sip Cafe"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                  الرقم الضريبي ZATCA VAT (15 رقم):
+                </label>
+                <input
+                  type="text"
+                  required
+                  maxLength={15}
+                  value={settingsVatNumber}
+                  onChange={(e) => setSettingsVatNumber(e.target.value.replace(/\D/g, ''))}
+                  placeholder="3XXXXXXXXXXXXX3"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-mono text-slate-900 focus:outline-none focus:border-indigo-500"
+                />
+                <div className="text-[10px] mt-1">
+                  {settingsVatNumber.length === 15 && settingsVatNumber.startsWith('3') && settingsVatNumber.endsWith('3') ? (
+                    <span className="text-emerald-600 font-bold flex items-center gap-1">
+                      <Check className="w-3 h-3" /> مطابق لمعايير هيئة الزكاة والضريبة والجمارك (15 خانة)
+                    </span>
+                  ) : (
+                    <span className="text-amber-600">
+                      يجب أن يتكون من 15 رقماً ويبدأ بالرقم 3 وينتهي بالرقم 3
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">رقم السجل التجاري (CR No.):</label>
+                <input
+                  type="text"
+                  value={settingsCrNumber}
+                  onChange={(e) => setSettingsCrNumber(e.target.value)}
+                  placeholder="مثال: 1010XXXXXX"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-mono text-slate-900 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">رقم هاتف المتجر / خدمة العملاء:</label>
+                <input
+                  type="text"
+                  value={settingsPhone}
+                  onChange={(e) => setSettingsPhone(e.target.value)}
+                  placeholder="05XXXXXXXX"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-mono text-slate-900 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">عنوان الفرع / المدينة:</label>
+                <input
+                  type="text"
+                  value={settingsAddress}
+                  onChange={(e) => setSettingsAddress(e.target.value)}
+                  placeholder="الرياض - طريق الملك فهد"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">الرمز السري الرئيسي للمشرف (Master PIN):</label>
+                <input
+                  type="password"
+                  maxLength={6}
+                  value={settingsMasterPin}
+                  onChange={(e) => setSettingsMasterPin(e.target.value)}
+                  placeholder="1234"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-mono text-slate-900 focus:outline-none focus:border-indigo-500"
+                />
+                <span className="text-[10px] text-slate-500 mt-0.5 block">
+                  يُستخدم للدخول إلى محطة الإدارة، إلغاء الطلبات، وإقفال الورديات
+                </span>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">نسبة ضريبة القيمة المضافة:</label>
+                <select
+                  value={settingsTaxRate}
+                  onChange={(e) => setSettingsTaxRate(parseFloat(e.target.value))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
+                >
+                  <option value={0.15}>15% (المملكة العربية السعودية القياسية)</option>
+                  <option value={0.05}>5%</option>
+                  <option value={0}>0% (معفى من الضريبة)</option>
+                </select>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">رسالة تذييل الفاتورة (بالعربي):</label>
+                <input
+                  type="text"
+                  value={settingsFooterAr}
+                  onChange={(e) => setSettingsFooterAr(e.target.value)}
+                  placeholder="شكراً لزيارتكم ونسعد بخدمتكم دائماً"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">رسالة تذييل الفاتورة (بالإنجليزي):</label>
+                <input
+                  type="text"
+                  value={settingsFooterEn}
+                  onChange={(e) => setSettingsFooterEn(e.target.value)}
+                  placeholder="Thank you for your visit!"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="submit"
+                className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-2 shadow-sm transition active:scale-95"
+              >
+                <Save className="w-4 h-4" />
+                <span>حفظ كافة إعدادات المتجر</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: ADD / EDIT MENU ITEM                                               */}
+      {/* ========================================================================= */}
+      {isAddMenuModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg p-6 shadow-2xl my-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
+                <Coffee className="w-5 h-5 text-indigo-600" />
+                <span>{editingMenuItem ? 'تعديل الصنف' : 'إضافة صنف جديد للقائمة'}</span>
+              </h3>
+              <button
+                onClick={() => setIsAddMenuModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveMenuItem} className="space-y-4 pt-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">الاسم بالعربي:</label>
+                  <input
+                    type="text"
+                    required
+                    value={menuFormNameAr}
+                    onChange={(e) => setMenuFormNameAr(e.target.value)}
+                    placeholder="مثال: فلات وايت"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">الاسم بالإنجليزي:</label>
+                  <input
+                    type="text"
+                    value={menuFormNameEn}
+                    onChange={(e) => setMenuFormNameEn(e.target.value)}
+                    placeholder="e.g. Flat White"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">التصنيف:</label>
+                <select
+                  value={menuFormCategory}
+                  onChange={(e) => setMenuFormCategory(e.target.value as MenuCategory)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="HOT">قهوة ساخنة (HOT)</option>
+                  <option value="COLD">قهوة باردة (COLD)</option>
+                  <option value="DRIP">مختصة وتقطير (DRIP)</option>
+                  <option value="TEA">شاي ومنعشات (TEA)</option>
+                  <option value="PASTRY">حلا ومخبوزات (PASTRY)</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-4 gap-2">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">الأساسي:</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    required
+                    value={menuFormBasePrice}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value) || 0;
+                      setMenuFormBasePrice(v);
+                      if (!editingMenuItem) {
+                        setMenuFormPriceS(v);
+                        setMenuFormPriceM(v);
+                        setMenuFormPriceL(v + 2);
+                      }
+                    }}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-mono text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">صغير S:</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={menuFormPriceS}
+                    onChange={(e) => setMenuFormPriceS(parseFloat(e.target.value) || 0)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-mono text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">وسط M:</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={menuFormPriceM}
+                    onChange={(e) => setMenuFormPriceM(parseFloat(e.target.value) || 0)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-mono text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">كبير L:</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={menuFormPriceL}
+                    onChange={(e) => setMenuFormPriceL(parseFloat(e.target.value) || 0)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-mono text-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">الوصف (اختياري):</label>
+                <textarea
+                  rows={2}
+                  value={menuFormDescAr}
+                  onChange={(e) => setMenuFormDescAr(e.target.value)}
+                  placeholder="وصف مكونات المشروب أو الحلا..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddMenuModalOpen(false)}
+                  className="w-1/3 h-10 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  className="w-2/3 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/20"
+                >
+                  {editingMenuItem ? 'حفظ التعديلات' : 'إضافة الصنف للمنيو'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: ADD RAW INGREDIENT                                                 */}
+      {/* ========================================================================= */}
+      {isAddIngredientModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-md p-6 shadow-2xl my-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
+                <Package className="w-5 h-5 text-indigo-600" />
+                <span>إضافة مادة خام جديدة للمستودع</span>
+              </h3>
+              <button
+                onClick={() => setIsAddIngredientModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveIngredient} className="space-y-3.5 pt-4">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">اسم المادة بالعربي:</label>
+                <input
+                  type="text"
+                  required
+                  value={newIngNameAr}
+                  onChange={(e) => setNewIngNameAr(e.target.value)}
+                  placeholder="مثال: حبوب بن كولومبي مختص"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">الاسم بالإنجليزي:</label>
+                <input
+                  type="text"
+                  value={newIngNameEn}
+                  onChange={(e) => setNewIngNameEn(e.target.value)}
+                  placeholder="e.g. Colombian Beans"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">رمز المادة (SKU):</label>
+                  <input
+                    type="text"
+                    value={newIngSku}
+                    onChange={(e) => setNewIngSku(e.target.value)}
+                    placeholder="SKU-BEAN-01"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-mono text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">وحدة القياس:</label>
+                  <select
+                    value={newIngUnit}
+                    onChange={(e) => setNewIngUnit(e.target.value as IngredientUnit)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs text-slate-900"
+                  >
+                    <option value="g">جرام (g)</option>
+                    <option value="ml">مليلتر (ml)</option>
+                    <option value="piece">حبة / قطعة (piece)</option>
+                    <option value="shot">جرعة / شوت (shot)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">الكمية البدائية:</label>
+                  <input
+                    type="number"
+                    required
+                    value={newIngStock}
+                    onChange={(e) => setNewIngStock(parseFloat(e.target.value) || 0)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-mono text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">حد التنبيه:</label>
+                  <input
+                    type="number"
+                    value={newIngThreshold}
+                    onChange={(e) => setNewIngThreshold(parseFloat(e.target.value) || 0)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-mono text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">تكلفة الوحدة:</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={newIngCost}
+                    onChange={(e) => setNewIngCost(parseFloat(e.target.value) || 0)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-mono text-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setIsAddIngredientModalOpen(false)}
+                  className="w-1/3 h-10 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  className="w-2/3 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/20"
+                >
+                  حفظ المادة الخام
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: ADD REGION / DISTRICT                                              */}
+      {/* ========================================================================= */}
+      {isAddRegionOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-sm p-6 shadow-2xl my-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-indigo-600" />
+                <span>إضافة حي أو منطقة تغطية</span>
+              </h3>
+              <button
+                onClick={() => setIsAddRegionOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveRegion} className="space-y-3.5 pt-4">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">اسم الحي / المنطقة:</label>
+                <input
+                  type="text"
+                  required
+                  value={newRegionNameAr}
+                  onChange={(e) => setNewRegionNameAr(e.target.value)}
+                  placeholder="مثال: حي الملقا"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">المدينة:</label>
+                <input
+                  type="text"
+                  value={newRegionCity}
+                  onChange={(e) => setNewRegionCity(e.target.value)}
+                  placeholder="الرياض"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddRegionOpen(false)}
+                  className="w-1/3 h-10 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  className="w-2/3 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs"
+                >
+                  حفظ المنطقة
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: ACTIVATE PRODUCTION MODE & WIPE DEMO DATA                          */}
+      {/* ========================================================================= */}
+      {isProductionModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-md p-6 shadow-2xl my-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-slate-900">الانتقال للإنتاج الفعلي</h3>
+                  <p className="text-xs text-slate-500">تصفير بيانات التجربة وبدء الوردية الحقيقية</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsProductionModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmProductionMode} className="space-y-4 pt-4">
+              <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-xs space-y-1">
+                <div className="font-bold">تنبيه هام للتشغيل:</div>
+                <p>
+                  سيتم مسح كافة الطلبات التجريبية وتصفير عداد حركة العمل، مع الإبقاء على قائمة الأصناف والمستودع والعملاء. سيبدأ النظام فوراً بتسجيل طلبات الزبائن الحقيقيين.
+                </p>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  الرمز السري الرئيسي للمشرف (PIN):
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={prodPinInput}
+                  onChange={(e) => {
+                    setProdPinInput(e.target.value);
+                    setProdPinError('');
+                  }}
+                  placeholder="أدخل الرمز السري (الافتراضي 1234)"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-mono text-slate-900"
+                />
+                {prodPinError && <span className="text-xs text-rose-500 font-bold block mt-1">{prodPinError}</span>}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">رقم أول طلب حقيقي:</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={prodStartOrderNum}
+                    onChange={(e) => setProdStartOrderNum(parseInt(e.target.value) || 1)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-mono text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">عهدة بداية اليوم (ر.س):</label>
+                  <input
+                    type="number"
+                    value={prodStartingCash}
+                    onChange={(e) => setProdStartingCash(parseFloat(e.target.value) || 0)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-mono text-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">اسم كاشير الوردية الأولى:</label>
+                <input
+                  type="text"
+                  value={prodCashierName}
+                  onChange={(e) => setProdCashierName(e.target.value)}
+                  placeholder="كاشير الفرع"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsProductionModalOpen(false)}
+                  className="w-1/3 h-10 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  className="w-2/3 h-10 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs shadow-md shadow-amber-500/20 flex items-center justify-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>تأكيد البدء الفعلي للإنتاج</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* SECTION: WORK MOVEMENT VISUALIZER */}
+      {activeSection === 'WORK_MOVEMENT' && (
+        <WorkMovementVisualizer />
+      )}
+
+      {/* SECTION: LICENSING & DEVICE QUOTAS */}
+      {activeSection === 'LICENSING' && (
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <h3 className="text-base font-bold text-slate-900">نظام إدارة التراخيص وتنسيق الأجهزة المتصلة</h3>
+              <p className="text-xs text-slate-500 mt-1">تحديد مدة الترخيص، إضافة أجهزة الكاشير والمطبخ والسيارات، وتوليد مفاتيح مشفرة</p>
+            </div>
+            <button
+              onClick={() => setIsLicenseModalOpen(true)}
+              className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-2 shadow-sm transition active:scale-95"
+            >
+              <KeyRound className="w-4 h-4" />
+              <span>إدارة وتوليد التراخيص</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+              <span className="text-xs text-slate-500 block">المقهى المرخص</span>
+              <span className="text-base font-bold text-slate-900 mt-1 block">
+                {store.licenseValidation.payload?.shopName || store.storeSettings?.storeName || 'البارستا الذكي'}
+              </span>
+              <span className="text-[11px] text-slate-400 font-mono mt-0.5 block">
+                Tenant: {store.licenseValidation.payload?.tenantId || store.deviceId}
+              </span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+              <span className="text-xs text-slate-500 block">حصة الأجهزة المرخصة</span>
+              <div className="text-base font-bold text-indigo-600 font-mono mt-1 flex items-center gap-2">
+                <span>{Object.keys(store.connectedDevices).length} / {store.licenseValidation.payload?.maxDevices || 1} أجهزة</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 font-sans font-medium">
+                  {Object.keys(store.connectedDevices).length <= (store.licenseValidation.payload?.maxDevices || 1) ? 'ضمن الحصة' : 'تجاوز الحصة'}
+                </span>
+              </div>
+              <span className="text-[11px] text-slate-400 mt-0.5 block">
+                تشمل هواتف السيارات، لوحي المطبخ، وشاشة الكاشير
+              </span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+              <span className="text-xs text-slate-500 block">صلاحية الاشتراك</span>
+              <span className="text-base font-bold text-emerald-600 font-mono mt-1 block">
+                {store.licenseValidation.daysRemaining} يوم متبقي
+              </span>
+              <span className="text-[11px] text-slate-400 mt-0.5 block">
+                ينتهي في: {store.licenseValidation.payload?.expiresAt ? new Date(store.licenseValidation.payload.expiresAt).toLocaleDateString('ar-SA') : 'نشط'}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* License Modal */}
+      <LicenseModal
+        isOpen={isLicenseModalOpen}
+        onClose={() => setIsLicenseModalOpen(false)}
+      />
+
+      {/* Confirmation Modal (Replaces window.confirm) */}
+      {confirmModal && confirmModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-bold text-base text-slate-900">{confirmModal.title}</h3>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">{confirmModal.message}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmModal(null)}
+                className="py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs transition"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={confirmModal.onConfirm}
+                className="py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition shadow-sm"
+              >
+                تأكيد الحذف
               </button>
             </div>
           </div>

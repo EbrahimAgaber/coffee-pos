@@ -77,6 +77,7 @@ export const KdsStation: React.FC = () => {
   // Recent Bumps for 60-Second Undo
   const [recentBumps, setRecentBumps] = useState<BumpedRecord[]>([]);
   const [isRecentDrawerOpen, setIsRecentDrawerOpen] = useState<boolean>(false);
+  const [undoError, setUndoError] = useState<string | null>(null);
 
   // Active Filter Tab: 'ALL' | 'PREP' | 'READY' | 'RUSH'
   const [filterTab, setFilterTab] = useState<'ALL' | 'PREP' | 'READY' | 'RUSH'>('ALL');
@@ -155,7 +156,8 @@ export const KdsStation: React.FC = () => {
   const handleRecallOrder = async (record: BumpedRecord) => {
     const elapsedSeconds = (Date.now() - record.bumpedAtMs) / 1000;
     if (elapsedSeconds >= 60) {
-      alert('انتهت مهلة التراجع المسموحة (60 ثانية).');
+      setUndoError('انتهت مهلة التراجع المسموحة (60 ثانية).');
+      setTimeout(() => setUndoError(null), 4000);
       return;
     }
 
@@ -164,6 +166,7 @@ export const KdsStation: React.FC = () => {
       if (res.success) {
         // Remove from recent bumps
         setRecentBumps((prev) => prev.filter((r) => r.order.id !== record.order.id));
+        setUndoError(null);
       }
     } catch (e) {
       console.error('[KDS] Failed to recall order:', e);
@@ -220,15 +223,12 @@ export const KdsStation: React.FC = () => {
   }, [filterTab, activeTickets, readyTickets, currentTimeMs]);
 
   return (
-    <div
-      style={{ backgroundColor: '#FFFFFF' }}
-      className="min-h-[calc(100vh-5.5rem)] rounded-2xl border border-slate-200 text-slate-900 flex flex-col overflow-hidden shadow-2xl"
-    >
+    <div className="min-h-[calc(100vh-5.5rem)] rounded-2xl border border-slate-200 bg-slate-100 text-slate-900 flex flex-col overflow-hidden shadow-sm">
       {/* KDS Station Header */}
-      <div className="bg-white backdrop-blur-md border-b border-slate-200 px-4 py-3 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-20">
+      <div className="bg-white border-b border-slate-200 px-4 py-3 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-20">
         {/* Title and Active Counts */}
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+          <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700">
             <ChefHat className="w-5 h-5" />
           </div>
           <div>
@@ -237,9 +237,9 @@ export const KdsStation: React.FC = () => {
                 شاشة إدارة المطبخ والبار (KDS)
               </h2>
               {delayedTicketsCount > 0 && (
-                <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold animate-pulse">
-                  <Flame className="w-3 h-3 text-rose-400" />
-                  {delayedTicketsCount} متأخر
+                <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 font-bold animate-pulse">
+                  <Flame className="w-3 h-3 text-rose-600" />
+                  {delayedTicketsCount} متأخر (Rush)
                 </span>
               )}
             </div>
@@ -250,14 +250,14 @@ export const KdsStation: React.FC = () => {
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200 text-xs font-semibold">
+        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold">
           <button
             type="button"
             onClick={() => setFilterTab('ALL')}
             className={`px-3 py-1.5 rounded-lg transition-all ${
               filterTab === 'ALL'
-                ? 'bg-slate-100 text-white shadow-sm border border-slate-200'
-                : 'text-slate-500 hover:text-slate-800'
+                ? 'bg-indigo-600 text-white shadow-xs font-bold'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white'
             }`}
           >
             الكل ({activeTickets.length})
@@ -267,8 +267,8 @@ export const KdsStation: React.FC = () => {
             onClick={() => setFilterTab('RUSH')}
             className={`px-3 py-1.5 rounded-lg transition-all ${
               filterTab === 'RUSH'
-                ? 'bg-rose-600 text-white shadow-sm'
-                : 'text-slate-500 hover:text-rose-300'
+                ? 'bg-rose-600 text-white shadow-xs font-bold'
+                : 'text-rose-700 hover:bg-rose-50'
             }`}
           >
             المتأخرة ({delayedTicketsCount})
@@ -278,8 +278,8 @@ export const KdsStation: React.FC = () => {
             onClick={() => setFilterTab('READY')}
             className={`px-3 py-1.5 rounded-lg transition-all ${
               filterTab === 'READY'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-slate-500 hover:text-blue-300'
+                ? 'bg-sky-600 text-white shadow-xs font-bold'
+                : 'text-sky-700 hover:bg-sky-50'
             }`}
           >
             جاهز للاستلام ({readyTickets.length})
@@ -294,8 +294,8 @@ export const KdsStation: React.FC = () => {
             onClick={handleToggleMute}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
               isMuted
-                ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500/20'
-                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
+                ? 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
+                : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
             }`}
             title={isMuted ? 'تفعيل رنين الطلبات الجديدة' : 'كتم رنين الطلبات الجديدة'}
           >
@@ -309,13 +309,13 @@ export const KdsStation: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsRecentDrawerOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-100 border border-slate-200 text-slate-800 text-xs font-bold transition-all relative"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold transition-all relative shadow-2xs"
             title="سجل التذاكر المسلّمة وخيار التراجع (60 ثانية)"
           >
-            <History className="w-4 h-4 text-amber-400" />
+            <History className="w-4 h-4 text-indigo-600" />
             <span className="hidden sm:inline">التذاكر المسلّمة</span>
             {activeUndoableCount > 0 && (
-              <span className="w-5 h-5 rounded-full bg-amber-500 text-slate-950 text-[11px] font-black flex items-center justify-center font-mono animate-bounce">
+              <span className="w-5 h-5 rounded-full bg-amber-500 text-white text-[11px] font-black flex items-center justify-center font-mono">
                 {activeUndoableCount}
               </span>
             )}
@@ -344,41 +344,40 @@ export const KdsStation: React.FC = () => {
               const isNew = ticket.status === 'NEW_ORDER';
 
               // Urgency border & card styles
-              let cardStyle = 'border-slate-200 bg-slate-100 shadow-md';
-              let headerBadgeStyle = 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40';
+              let cardStyle = 'border-slate-300 bg-white shadow-sm';
+              let headerBadgeStyle = 'bg-emerald-50 text-emerald-800 border-emerald-300';
 
               if (!isReady) {
                 if (urgency.urgency === 'green') {
-                  cardStyle = 'border-emerald-500/60 bg-slate-100 shadow-emerald-500/10 shadow-lg';
-                  headerBadgeStyle = 'bg-emerald-950 text-emerald-300 border-emerald-500/50';
+                  cardStyle = 'border-emerald-500 bg-white shadow-md ring-1 ring-emerald-400/20';
+                  headerBadgeStyle = 'bg-emerald-50 text-emerald-800 border-emerald-300';
                 } else if (urgency.urgency === 'yellow') {
-                  cardStyle = 'border-amber-500/80 bg-slate-100 shadow-amber-500/15 shadow-lg';
-                  headerBadgeStyle = 'bg-amber-950 text-amber-300 border-amber-500/50';
+                  cardStyle = 'border-amber-500 bg-white shadow-md ring-2 ring-amber-400/30';
+                  headerBadgeStyle = 'bg-amber-50 text-amber-900 border-amber-300';
                 } else if (urgency.urgency === 'red') {
                   cardStyle =
-                    'border-rose-600 bg-rose-950/20 shadow-rose-600/30 shadow-xl ring-1 ring-rose-500 animate-pulse';
-                  headerBadgeStyle = 'bg-rose-950 text-rose-300 border-rose-500';
+                    'border-rose-600 bg-white shadow-xl ring-2 ring-rose-500 animate-pulse';
+                  headerBadgeStyle = 'bg-rose-600 text-white border-rose-600 font-black';
                 }
               } else {
-                cardStyle = 'border-blue-500/50 bg-slate-100 opacity-90';
-                headerBadgeStyle = 'bg-blue-950 text-blue-300 border-blue-500/40';
+                cardStyle = 'border-sky-400 bg-white/95 opacity-90 shadow-sm';
+                headerBadgeStyle = 'bg-sky-50 text-sky-800 border-sky-300';
               }
 
               return (
                 <div
                   key={ticket.id}
-                  style={{ backgroundColor: '#1E293B' }}
-                  className={`rounded-2xl border-2 flex flex-col justify-between overflow-hidden transition-all ${cardStyle}`}
+                  className={`rounded-2xl border-2 flex flex-col justify-between overflow-hidden transition-all bg-white ${cardStyle}`}
                 >
                   {/* Card Header: Order #, Tag, and Stopwatch Timer */}
-                  <div className="p-3.5 border-b border-slate-200 bg-white">
+                  <div className="p-3.5 border-b border-slate-200 bg-slate-50/70">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono font-black text-xl text-amber-400">
+                        <span className="font-mono font-black text-2xl text-slate-900">
                           {ticket.formattedOrderNumber}
                         </span>
                         {isNew && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold animate-pulse">
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 font-bold animate-pulse">
                             جديد
                           </span>
                         )}
@@ -398,8 +397,8 @@ export const KdsStation: React.FC = () => {
                       <div className="flex items-center gap-1.5 text-slate-800 font-semibold">
                         {ticket.tagType === 'VEHICLE' ? (
                           <>
-                            <Car className="w-3.5 h-3.5 text-amber-400" />
-                            <span className="font-mono tracking-wide">{ticket.tagValue}</span>
+                            <Car className="w-3.5 h-3.5 text-indigo-600" />
+                            <span className="font-mono tracking-wide font-bold">{ticket.tagValue}</span>
                             {ticket.vehicleModel && (
                               <span className="text-slate-500 text-[11px]">
                                 ({ticket.vehicleModel})
@@ -408,13 +407,13 @@ export const KdsStation: React.FC = () => {
                           </>
                         ) : ticket.tagType === 'BUZZER' ? (
                           <>
-                            <Bell className="w-3.5 h-3.5 text-blue-400" />
-                            <span className="font-mono">{ticket.tagValue}</span>
+                            <Bell className="w-3.5 h-3.5 text-amber-600" />
+                            <span className="font-mono font-bold">{ticket.tagValue}</span>
                           </>
                         ) : (
                           <>
-                            <User className="w-3.5 h-3.5 text-purple-400" />
-                            <span>{ticket.tagValue}</span>
+                            <User className="w-3.5 h-3.5 text-purple-600" />
+                            <span className="font-bold">{ticket.tagValue}</span>
                           </>
                         )}
                       </div>
@@ -426,17 +425,17 @@ export const KdsStation: React.FC = () => {
                   </div>
 
                   {/* Card Body: Items List & Modifiers */}
-                  <div className="p-3.5 space-y-3 flex-1 overflow-y-auto max-h-80">
+                  <div className="p-3.5 space-y-2.5 flex-1 overflow-y-auto max-h-80 bg-white">
                     {ticket.items.map((item, idx) => (
                       <div
                         key={idx}
-                        className="bg-white p-2.5 rounded-xl border border-slate-200 flex flex-col gap-1.5"
+                        className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200 flex flex-col gap-1.5 shadow-2xs"
                       >
                         {/* Item Name & Quantity Badge */}
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
                             {/* Prominent Quantity Badge */}
-                            <span className="w-7 h-7 rounded-lg bg-amber-500 text-slate-950 font-black font-mono text-sm flex items-center justify-center shadow-sm">
+                            <span className="w-7 h-7 rounded-lg bg-indigo-600 text-white font-black font-mono text-sm flex items-center justify-center shadow-xs">
                               {item.quantity}x
                             </span>
                             <span className="font-bold text-sm text-slate-900">
@@ -444,7 +443,7 @@ export const KdsStation: React.FC = () => {
                             </span>
                           </div>
 
-                          <span className="text-xs px-2 py-0.5 rounded bg-slate-100 text-amber-300 font-mono font-bold">
+                          <span className="text-xs px-2 py-0.5 rounded bg-slate-200 text-slate-800 font-mono font-bold">
                             {item.size}
                           </span>
                         </div>
@@ -455,15 +454,15 @@ export const KdsStation: React.FC = () => {
                             {item.modifiers.map((m, mIdx) => {
                               let chipColor = 'bg-slate-100 text-slate-700 border-slate-200';
                               if (m.category === 'MILK') {
-                                chipColor = 'bg-blue-950/80 text-blue-300 border-blue-500/40';
+                                chipColor = 'bg-blue-50 text-blue-800 border-blue-200';
                               } else if (m.category === 'EXTRA_SHOT') {
-                                chipColor = 'bg-rose-950/80 text-rose-300 border-rose-500/40';
+                                chipColor = 'bg-amber-50 text-amber-900 border-amber-200';
                               } else if (m.category === 'SWEETNESS') {
-                                chipColor = 'bg-pink-950/80 text-pink-300 border-pink-500/40';
+                                chipColor = 'bg-rose-50 text-rose-800 border-rose-200';
                               } else if (m.category === 'TEMPERATURE') {
-                                chipColor = 'bg-orange-950/80 text-orange-300 border-orange-500/40';
+                                chipColor = 'bg-sky-50 text-sky-800 border-sky-200';
                               } else if (m.category === 'SYRUP') {
-                                chipColor = 'bg-purple-950/80 text-purple-300 border-purple-500/40';
+                                chipColor = 'bg-purple-50 text-purple-800 border-purple-200';
                               }
 
                               return (
@@ -480,9 +479,9 @@ export const KdsStation: React.FC = () => {
 
                         {/* Callout Barista Notes */}
                         {item.specialInstructions && (
-                          <div className="flex items-start gap-1.5 mt-1 p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs">
-                            <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
-                            <span className="font-semibold">
+                          <div className="flex items-start gap-1.5 mt-1 p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs">
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
+                            <span className="font-bold">
                               ملاحظة: {item.specialInstructions}
                             </span>
                           </div>
@@ -492,10 +491,10 @@ export const KdsStation: React.FC = () => {
                   </div>
 
                   {/* Card Bottom: Single-Tap Bump Button */}
-                  <div className="p-3 border-t border-slate-200 bg-white">
+                  <div className="p-3 border-t border-slate-200 bg-slate-50/70">
                     {isReady ? (
-                      <div className="h-12 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-300 font-bold text-xs flex items-center justify-center gap-2">
-                        <CheckCheck className="w-4 h-4 text-blue-400" />
+                      <div className="h-12 rounded-xl bg-sky-50 border border-sky-200 text-sky-800 font-bold text-xs flex items-center justify-center gap-2">
+                        <CheckCheck className="w-4 h-4 text-sky-600" />
                         <span>جاهز بانتظار استلام الكاشير</span>
                       </div>
                     ) : (
@@ -504,7 +503,7 @@ export const KdsStation: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleStartPrep(ticket)}
-                            className="h-12 px-3 rounded-xl bg-slate-100 hover:bg-slate-100 border border-slate-200 text-slate-800 font-bold text-xs active:scale-95 transition-all"
+                            className="h-12 px-4 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-800 font-bold text-xs active:scale-95 transition-all shadow-2xs"
                             title="بدء التحضير"
                           >
                             بدء
@@ -513,7 +512,7 @@ export const KdsStation: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleBumpOrder(ticket)}
-                          className="flex-1 h-12 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm flex items-center justify-center gap-2 active:scale-98 shadow-lg shadow-emerald-600/20 transition-all"
+                          className="flex-1 h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm flex items-center justify-center gap-2 active:scale-98 shadow-md shadow-emerald-600/20 transition-all"
                         >
                           <CheckCircle className="w-5 h-5" />
                           <span>جاهز للتقديم (Bump Ready)</span>
@@ -530,34 +529,40 @@ export const KdsStation: React.FC = () => {
 
       {/* RECENT BUMPS DRAWER (60-Second Undo) */}
       {isRecentDrawerOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="w-full max-w-md bg-white border-r border-slate-200 h-full flex flex-col shadow-2xl p-5 overflow-hidden animate-in slide-in-from-right duration-300">
             {/* Drawer Header */}
             <div className="flex items-center justify-between pb-4 border-b border-slate-200">
               <div className="flex items-center gap-2">
-                <History className="w-5 h-5 text-amber-400" />
+                <History className="w-5 h-5 text-indigo-600" />
                 <h3 className="font-bold text-base text-slate-900">
                   سجل التذاكر المسلّمة حديثاً
                 </h3>
               </div>
               <button
                 onClick={() => setIsRecentDrawerOpen(false)}
-                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 bg-slate-100"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 bg-slate-100"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-500 mt-2 mb-4">
+            <p className="text-xs text-slate-500 mt-2 mb-3">
               يمكنك استعادة أي تذكرة تم تسليمها بالخطأ وإعادتها لقائمة التحضير خلال مهلة 60 ثانية.
             </p>
+
+            {undoError && (
+              <div className="mb-3 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold">
+                {undoError}
+              </div>
+            )}
 
             {/* Bumps List */}
             <div className="flex-1 overflow-y-auto space-y-3">
               {validRecentBumps.length === 0 ? (
-                <div className="h-64 flex flex-col items-center justify-center text-slate-500 text-center">
-                  <RotateCcw className="w-8 h-8 mb-2 opacity-30 text-amber-400" />
-                  <p className="text-xs">لا توجد تذاكر مسلّمة في الذاكرة المؤقتة</p>
+                <div className="h-64 flex flex-col items-center justify-center text-slate-400 text-center">
+                  <RotateCcw className="w-8 h-8 mb-2 opacity-30 text-indigo-400" />
+                  <p className="text-xs font-bold text-slate-600">لا توجد تذاكر مسلّمة في الذاكرة المؤقتة</p>
                 </div>
               ) : (
                 validRecentBumps.map((record) => {
@@ -570,30 +575,30 @@ export const KdsStation: React.FC = () => {
                       key={record.order.id}
                       className={`p-3 rounded-xl border transition-all ${
                         canUndo
-                          ? 'bg-slate-100 border-slate-200'
-                          : 'bg-slate-50 border-slate-200 opacity-60'
+                          ? 'bg-slate-50 border-slate-200 shadow-2xs'
+                          : 'bg-slate-50/50 border-slate-200 opacity-60'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-amber-400 text-sm">
+                          <span className="font-mono font-black text-indigo-900 text-sm">
                             {record.order.formattedOrderNumber}
                           </span>
-                          <span className="text-xs text-slate-700 font-medium">
+                          <span className="text-xs text-slate-800 font-bold">
                             {record.order.tagValue}
                           </span>
                         </div>
 
                         {canUndo ? (
-                          <span className="text-[11px] px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/20 font-mono font-semibold">
+                          <span className="text-[11px] px-2 py-0.5 rounded-md bg-amber-50 text-amber-900 border border-amber-200 font-mono font-bold">
                             متبقي: {remainingUndoSeconds} ثانية
                           </span>
                         ) : (
-                          <span className="text-[10px] text-slate-500">انتهت المهلة</span>
+                          <span className="text-[10px] text-slate-400">انتهت المهلة</span>
                         )}
                       </div>
 
-                      <div className="text-xs text-slate-500 mb-3">
+                      <div className="text-xs text-slate-600 mb-3">
                         {record.order.items.map((it) => `${it.quantity}x ${it.nameAr}`).join(' + ')}
                       </div>
 
@@ -601,7 +606,7 @@ export const KdsStation: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleRecallOrder(record)}
-                          className="w-full h-10 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 active:scale-98 transition-all"
+                          className="w-full h-10 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 active:scale-98 transition-all"
                         >
                           <RotateCcw className="w-4 h-4" />
                           <span>إلغاء التسليم واستعادة التذكرة (Undo Bump)</span>

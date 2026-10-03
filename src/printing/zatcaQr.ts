@@ -6,12 +6,23 @@ export { generateZatcaTlvQrString, type ZatcaInvoiceData };
 
 export interface StoreTaxProfile {
   name: string;
+  nameEn?: string;
   vatNumber: string;
+  phone?: string;
+  address?: string;
+  crNumber?: string;
+  footerAr?: string;
+  footerEn?: string;
 }
 
 export const DEFAULT_STORE_TAX_PROFILE: StoreTaxProfile = {
-  name: 'كافيه الأفق المختص',
+  name: 'مقهى البارستا الذكي',
+  nameEn: 'Smart Barista Cafe',
   vatNumber: '310123456700003',
+  phone: '0501234567',
+  address: 'المملكة العربية السعودية',
+  footerAr: 'شكراً لزيارتكم ونسعد بخدمتكم دائماً',
+  footerEn: 'Thank you for your visit!',
 };
 
 /**

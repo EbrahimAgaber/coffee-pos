@@ -40,7 +40,7 @@ import {
   CashierShift,
 } from '../src/types';
 
-import { generateZatcaTlvQrString } from '../../src/utils/zatca';
+import { generateZatcaTlvQrString } from '../src/utils/zatca';
 
 export function registerTier4Tests(): void {
   describe('Tier 4 - Real-World High-Stress Workload Scenarios', () => {

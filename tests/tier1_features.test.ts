@@ -50,8 +50,8 @@ import {
   CashierShift,
 } from '../src/types';
 
-import { shapeArabic, shapeBidi } from '../../src/utils/arabicShaper';
-import { generateZatcaTlvQrString } from '../../src/utils/zatca';
+import { shapeArabic, shapeBidi } from '../src/utils/arabicShaper';
+import { generateZatcaTlvQrString } from '../src/utils/zatca';
 
 export function registerTier1Tests(): void {
   describe('Tier 1 - Domain 1: Drive-Thru Ordering & Beverage Customizer', () => {

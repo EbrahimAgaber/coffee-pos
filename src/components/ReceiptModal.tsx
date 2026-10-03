@@ -242,12 +242,25 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             {/* Thermal Slip Header */}
             <div className="text-center pb-3 border-b border-dashed border-slate-300">
               <h3 className="text-base font-black text-slate-900">{storeProfile.name}</h3>
+              {storeProfile.nameEn && (
+                <div className="text-[10px] text-slate-500 font-sans">{storeProfile.nameEn}</div>
+              )}
               <div className="text-[11px] text-slate-600 font-sans mt-0.5">
-                فاتورة ضريبية مبسطة (Tax Invoice)
+                فاتورة ضريبية مبسطة (Simplified Tax Invoice)
               </div>
               <div className="text-[10px] text-slate-500 mt-0.5">
                 الرقم الضريبي: {storeProfile.vatNumber}
               </div>
+              {storeProfile.crNumber && (
+                <div className="text-[10px] text-slate-500 font-sans">
+                  سجل تجاري: {storeProfile.crNumber}
+                </div>
+              )}
+              {(storeProfile.address || storeProfile.phone) && (
+                <div className="text-[10px] text-slate-500 font-sans">
+                  {[storeProfile.address, storeProfile.phone ? `هاتف: ${storeProfile.phone}` : ''].filter(Boolean).join(' | ')}
+                </div>
+              )}
               <div className="text-[11px] font-bold text-slate-800 mt-1">
                 رقم الطلب: {order.formattedOrderNumber}
               </div>
@@ -346,8 +359,13 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 رمز هيئة الزكاة والضريبة والجمارك (ZATCA Fatoora)
               </span>
               <span className="text-[10px] text-slate-600 font-sans mt-2">
-                شكراً لزيارتكم! نتشرف بخدمتكم دائماً
+                {storeProfile.footerAr || 'شكراً لزيارتكم! نتشرف بخدمتكم دائماً'}
               </span>
+              {storeProfile.footerEn && (
+                <span className="text-[9px] text-slate-400 font-sans">
+                  {storeProfile.footerEn}
+                </span>
+              )}
             </div>
           </div>
         </div>

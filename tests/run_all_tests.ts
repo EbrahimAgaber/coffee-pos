@@ -16,6 +16,7 @@ import { registerTier1Tests } from './tier1_features.test';
 import { registerTier2Tests } from './tier2_boundaries.test';
 import { registerTier3Tests } from './tier3_pairwise.test';
 import { registerTier4Tests } from './tier4_workloads.test';
+import { registerTier5Tests } from './tier5_licensing.test';
 
 async function main(): Promise<void> {
   // Register all tiers
@@ -23,6 +24,7 @@ async function main(): Promise<void> {
   registerTier2Tests();
   registerTier3Tests();
   registerTier4Tests();
+  registerTier5Tests();
 
   // Run all registered suites
   const summary = await runAllRegisteredSuites();

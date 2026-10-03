@@ -24,8 +24,8 @@ import {
   DepletionResult,
 } from '../src/types';
 
-import { shapeArabic, shapeBidi } from '../../src/utils/arabicShaper';
-import { generateZatcaTlvQrString, ZatcaInvoiceData } from '../../src/utils/zatca';
+import { shapeArabic, shapeBidi } from '../src/utils/arabicShaper';
+import { generateZatcaTlvQrString, ZatcaInvoiceData } from '../src/utils/zatca';
 
 // ============================================================================
 // 1. Lightweight Assertion & Test Framework

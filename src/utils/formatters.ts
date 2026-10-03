@@ -83,7 +83,7 @@ export function sanitizePhoneNumber(phone: string): string {
 export function buildWhatsAppReceiptUrl(
   phoneNumber: string,
   order: Order,
-  storeName: string = 'كافيه الأفق'
+  storeName: string = 'البارستا الذكي'
 ): string {
   const cleanPhone = sanitizePhoneNumber(phoneNumber);
   const itemsSummary = order.items && order.items.length > 0
@@ -97,7 +97,7 @@ export function buildWhatsAppReceiptUrl(
 /**
  * Builds comprehensive text message summary for WhatsApp sharing or printing.
  */
-export function buildOrderSummaryText(order: Order, storeName: string = 'كافيه الأفق'): string {
+export function buildOrderSummaryText(order: Order, storeName: string = 'البارستا الذكي'): string {
   let summary = `*${storeName}*\n`;
   summary += `فاتورة ضريبية مبسطة\n`;
   summary += `رقم الطلب: ${order.formattedOrderNumber}\n`;
